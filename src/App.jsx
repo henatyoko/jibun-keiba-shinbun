@@ -15,7 +15,7 @@ import {
   deleteTrendRule,
 } from "./lib/rulesRepository";
 import { supabase, isSupabaseConfigured } from "./lib/supabaseClient";
-import { PAPER, INK, GUTTER } from "./lib/colors";
+import { PAPER, INK } from "./lib/colors";
 
 export default function App() {
   const [tab, setTab] = useState("race");
@@ -113,17 +113,14 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen relative" style={{ background: GUTTER, fontFamily: "'Zen Old Mincho','Shippori Mincho',serif" }}>
+    <div className="min-h-screen relative" style={{ background: PAPER, fontFamily: "'Zen Old Mincho','Shippori Mincho',serif" }}>
       <Masthead
         raceCount={races.length}
         userEmail={session?.user?.email}
         onLogout={() => supabase.auth.signOut()}
       />
 
-      <div
-        className="max-w-md mx-auto relative pb-16"
-        style={{ background: PAPER, borderLeft: `1px solid ${INK}`, borderRight: `1px solid ${INK}`, minHeight: "100vh" }}
-      >
+      <div className="max-w-md mx-auto relative pb-16" style={{ background: PAPER, minHeight: "100vh" }}>
         {tab === "race" &&
           (selectedRace ? (
             <RaceDetail race={selectedRace} attrRules={attrRules} trendRules={trendRules} onBack={() => setSelectedRace(null)} />
