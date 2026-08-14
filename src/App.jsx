@@ -16,7 +16,6 @@ import {
 } from "./lib/rulesRepository";
 import { supabase, isSupabaseConfigured } from "./lib/supabaseClient";
 import { PAPER, INK, GUTTER } from "./lib/colors";
-import horseJockeyImg from "./assets/horse-jockey.png";
 
 export default function App() {
   const [tab, setTab] = useState("race");
@@ -115,21 +114,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen relative" style={{ background: GUTTER, fontFamily: "'Zen Old Mincho','Shippori Mincho',serif" }}>
-      {/* PC表示時、中央カラムの外側の暗い余白にうっすら見える馬柄パターン */}
-      <div
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          maskImage: `url(${horseJockeyImg})`,
-          WebkitMaskImage: `url(${horseJockeyImg})`,
-          maskRepeat: "space",
-          WebkitMaskRepeat: "space",
-          maskSize: "150px 126px",
-          WebkitMaskSize: "150px 126px",
-          backgroundColor: PAPER,
-          opacity: 0.16,
-        }}
-      />
-
       <Masthead
         raceCount={races.length}
         userEmail={session?.user?.email}
@@ -138,7 +122,7 @@ export default function App() {
 
       <div
         className="max-w-md mx-auto relative pb-16"
-        style={{ background: PAPER, borderLeft: `1px solid ${PAPER}`, borderRight: `1px solid ${PAPER}`, minHeight: "100vh" }}
+        style={{ background: PAPER, borderLeft: `1px solid ${INK}`, borderRight: `1px solid ${INK}`, minHeight: "100vh" }}
       >
         {tab === "race" &&
           (selectedRace ? (
