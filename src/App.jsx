@@ -14,7 +14,7 @@ import {
   deleteTrendRule,
 } from "./lib/rulesRepository";
 import { supabase, isSupabaseConfigured } from "./lib/supabaseClient";
-import { PAPER, INK } from "./lib/colors";
+import { PAPER, INK, HORSE_PATTERN_BG } from "./lib/colors";
 
 export default function App() {
   const [tab, setTab] = useState("race");
@@ -110,54 +110,67 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen max-w-md mx-auto relative" style={{ background: PAPER, fontFamily: "'Zen Old Mincho','Shippori Mincho',serif" }}>
+    <div className="min-h-screen relative" style={{ background: PAPER, fontFamily: "'Zen Old Mincho','Shippori Mincho',serif" }}>
+      {/* PC表示時、中央カラムの外側にうっすら見える馬柄パターン */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{ backgroundImage: HORSE_PATTERN_BG, backgroundRepeat: "repeat", opacity: 0.05 }}
+      />
+
       <Masthead
         raceCount={races.length}
         userEmail={session?.user?.email}
         onLogout={() => supabase.auth.signOut()}
       />
 
-      {tab === "race" &&
-        (selectedRace ? (
-          <RaceDetail race={selectedRace} attrRules={attrRules} trendRules={trendRules} onBack={() => setSelectedRace(null)} />
-        ) : (
-          <RaceList races={races} onSelect={setSelectedRace} />
-        ))}
-      {tab === "rules" && (
-        <RuleForm
-          races={races}
-          attrRules={attrRules}
-          trendRules={trendRules}
-          onAddAttrRule={handleAddAttrRule}
-          onDeleteAttrRule={handleDeleteAttrRule}
-          onAddTrendRule={handleAddTrendRule}
-          onDeleteTrendRule={handleDeleteTrendRule}
-          saveState={saveState}
-        />
-      )}
+      <div
+        className="max-w-md mx-auto relative pb-16"
+        style={{ background: PAPER, borderLeft: `1px solid ${INK}`, borderRight: `1px solid ${INK}`, minHeight: "100vh" }}
+      >
+        {tab === "race" &&
+          (selectedRace ? (
+            <RaceDetail race={selectedRace} attrRules={attrRules} trendRules={trendRules} onBack={() => setSelectedRace(null)} />
+          ) : (
+            <RaceList races={races} onSelect={setSelectedRace} />
+          ))}
+        {tab === "rules" && (
+          <RuleForm
+            races={races}
+            attrRules={attrRules}
+            trendRules={trendRules}
+            onAddAttrRule={handleAddAttrRule}
+            onDeleteAttrRule={handleDeleteAttrRule}
+            onAddTrendRule={handleAddTrendRule}
+            onDeleteTrendRule={handleDeleteTrendRule}
+            saveState={saveState}
+          />
+        )}
+      </div>
 
-      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto flex" style={{ background: INK, borderTop: `2px solid ${PAPER}` }}>
-        {[
-          { key: "race", label: "レース", icon: Flag },
-          { key: "rules", label: "知見登録", icon: Sparkles },
-        ].map((t) => (
-          <button
-            key={t.key}
-            onClick={() => {
-              setTab(t.key);
-              setSelectedRace(null);
-            }}
-            className="flex-1 flex flex-col items-center gap-0.5 py-2.5"
-          >
-            <t.icon size={18} color={tab === t.key ? "#E8B4A8" : PAPER} style={{ opacity: tab === t.key ? 1 : 0.6 }} />
-            <span
-              className="text-[10px] font-semibold"
-              style={{ color: tab === t.key ? "#E8B4A8" : PAPER, opacity: tab === t.key ? 1 : 0.6, fontFamily: "'Shippori Mincho', serif" }}
+      <div className="fixed bottom-0 left-0 right-0" style={{ background: INK, borderTop: `2px solid ${PAPER}` }}>
+        <div className="max-w-md mx-auto flex">
+          {[
+            { key: "race", label: "レース", icon: Flag },
+            { key: "rules", label: "知見登録", icon: Sparkles },
+          ].map((t) => (
+            <button
+              key={t.key}
+              onClick={() => {
+                setTab(t.key);
+                setSelectedRace(null);
+              }}
+              className="flex-1 flex flex-col items-center gap-0.5 py-2.5"
             >
-              {t.label}
-            </span>
-          </button>
-        ))}
+              <t.icon size={18} color={tab === t.key ? "#E8B4A8" : PAPER} style={{ opacity: tab === t.key ? 1 : 0.6 }} />
+              <span
+                className="text-[10px] font-semibold"
+                style={{ color: tab === t.key ? "#E8B4A8" : PAPER, opacity: tab === t.key ? 1 : 0.6, fontFamily: "'Shippori Mincho', serif" }}
+              >
+                {t.label}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
