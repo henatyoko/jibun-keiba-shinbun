@@ -21,9 +21,9 @@ export const WAKU_COLORS = {
   8: { bg: "#A5507A", text: PAPER, border: "#A5507A" },
 };
 
-// PC表示時、中央カラムの左右にうっすら敷く馬柄パターン(将棋の駒風の馬アイコンを散らす)
+// PC表示時、中央カラムの左右の暗い余白に敷く馬柄パターン(将棋の駒風の馬アイコンを散らす)
 const HORSE_TILE_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'>
-  <text x='0' y='95' font-size='90' font-family='serif' fill='${INK}'>♞</text>
-  <text x='115' y='205' font-size='90' font-family='serif' fill='${INK}'>♞</text>
+  <text x='0' y='95' font-size='90' font-family='serif' fill='${PAPER}'>♞</text>
+  <text x='115' y='205' font-size='90' font-family='serif' fill='${PAPER}'>♞</text>
 </svg>`;
 export const HORSE_PATTERN_BG = `url("data:image/svg+xml,${encodeURIComponent(HORSE_TILE_SVG)}")`;

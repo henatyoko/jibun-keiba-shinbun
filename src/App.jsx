@@ -113,11 +113,11 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen relative" style={{ background: PAPER, fontFamily: "'Zen Old Mincho','Shippori Mincho',serif" }}>
-      {/* PC表示時、中央カラムの外側にうっすら見える馬柄パターン */}
+    <div className="min-h-screen relative" style={{ background: INK, fontFamily: "'Zen Old Mincho','Shippori Mincho',serif" }}>
+      {/* PC表示時、中央カラムの外側の暗い余白にうっすら見える馬柄パターン */}
       <div
         className="fixed inset-0 pointer-events-none"
-        style={{ backgroundImage: HORSE_PATTERN_BG, backgroundRepeat: "repeat", opacity: 0.12 }}
+        style={{ backgroundImage: HORSE_PATTERN_BG, backgroundRepeat: "repeat", opacity: 0.18 }}
       />
 
       <Masthead
@@ -128,7 +128,7 @@ export default function App() {
 
       <div
         className="max-w-md mx-auto relative pb-16"
-        style={{ background: PAPER, borderLeft: `1px solid ${INK}`, borderRight: `1px solid ${INK}`, minHeight: "100vh" }}
+        style={{ background: PAPER, borderLeft: `1px solid ${PAPER}`, borderRight: `1px solid ${PAPER}`, minHeight: "100vh" }}
       >
         {tab === "race" &&
           (selectedRace ? (
