@@ -5,6 +5,7 @@ import RaceList from "./components/RaceList";
 import RaceDetail from "./components/RaceDetail";
 import RuleForm from "./components/RuleForm";
 import AuthScreen from "./components/AuthScreen";
+import ResetPasswordForm from "./components/ResetPasswordForm";
 import { fetchRaces } from "./data/raceSource";
 import {
   fetchRules,
@@ -25,6 +26,7 @@ export default function App() {
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
   const [session, setSession] = useState(null);
   const [sessionChecked, setSessionChecked] = useState(!isSupabaseConfigured);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   // ログイン状態を監視する
   useEffect(() => {
@@ -33,8 +35,9 @@ export default function App() {
       setSession(data.session);
       setSessionChecked(true);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
+      if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
     });
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -105,8 +108,8 @@ export default function App() {
     );
   }
 
-  if (isSupabaseConfigured && !session) {
-    return <AuthScreen />;
+  if (passwordRecovery) {
+    return <ResetPasswordForm onDone={() => setPasswordRecovery(false)} />;
   }
 
   return (
@@ -114,7 +117,7 @@ export default function App() {
       {/* PC表示時、中央カラムの外側にうっすら見える馬柄パターン */}
       <div
         className="fixed inset-0 pointer-events-none"
-        style={{ backgroundImage: HORSE_PATTERN_BG, backgroundRepeat: "repeat", opacity: 0.05 }}
+        style={{ backgroundImage: HORSE_PATTERN_BG, backgroundRepeat: "repeat", opacity: 0.12 }}
       />
 
       <Masthead
@@ -133,18 +136,21 @@ export default function App() {
           ) : (
             <RaceList races={races} onSelect={setSelectedRace} />
           ))}
-        {tab === "rules" && (
-          <RuleForm
-            races={races}
-            attrRules={attrRules}
-            trendRules={trendRules}
-            onAddAttrRule={handleAddAttrRule}
-            onDeleteAttrRule={handleDeleteAttrRule}
-            onAddTrendRule={handleAddTrendRule}
-            onDeleteTrendRule={handleDeleteTrendRule}
-            saveState={saveState}
-          />
-        )}
+        {tab === "rules" &&
+          (session ? (
+            <RuleForm
+              races={races}
+              attrRules={attrRules}
+              trendRules={trendRules}
+              onAddAttrRule={handleAddAttrRule}
+              onDeleteAttrRule={handleDeleteAttrRule}
+              onAddTrendRule={handleAddTrendRule}
+              onDeleteTrendRule={handleDeleteTrendRule}
+              saveState={saveState}
+            />
+          ) : (
+            <AuthScreen />
+          ))}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0" style={{ background: INK, borderTop: `2px solid ${PAPER}` }}>
