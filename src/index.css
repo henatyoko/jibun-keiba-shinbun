@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #f1e9d8;
+  --paper-card: #f8f2e4;
+  --ink: #2b2622;
+  --red: #a9342a;
+  --muted: #7a7166;
+  --line: #2b2622;
+
+  --font-mincho: "Shippori Mincho", "Zen Old Mincho", serif;
+  --font-body: "Zen Old Mincho", "Shippori Mincho", serif;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  font-family: var(--font-body);
+}
