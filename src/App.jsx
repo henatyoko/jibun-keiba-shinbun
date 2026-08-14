@@ -4,52 +4,118 @@ import Masthead from "./components/Masthead";
 import RaceList from "./components/RaceList";
 import RaceDetail from "./components/RaceDetail";
 import RuleForm from "./components/RuleForm";
+import AuthScreen from "./components/AuthScreen";
 import { fetchRaces } from "./data/raceSource";
-import { INITIAL_ATTR_RULES, INITIAL_TREND_RULES } from "./data/mockRules";
-import { getItem, setItem } from "./lib/storage";
+import {
+  fetchRules,
+  insertAttrRule,
+  deleteAttrRule,
+  insertTrendRule,
+  deleteTrendRule,
+} from "./lib/rulesRepository";
+import { supabase, isSupabaseConfigured } from "./lib/supabaseClient";
 import { PAPER, INK } from "./lib/colors";
-
-const RULES_STORAGE_KEY = "jibun-keiba-shinbun:chiken-rules";
 
 export default function App() {
   const [tab, setTab] = useState("race");
   const [races, setRaces] = useState([]);
   const [selectedRace, setSelectedRace] = useState(null);
-  const [attrRules, setAttrRules] = useState(INITIAL_ATTR_RULES);
-  const [trendRules, setTrendRules] = useState(INITIAL_TREND_RULES);
-  const [loaded, setLoaded] = useState(false);
+  const [attrRules, setAttrRules] = useState([]);
+  const [trendRules, setTrendRules] = useState([]);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
+  const [session, setSession] = useState(null);
+  const [sessionChecked, setSessionChecked] = useState(!isSupabaseConfigured);
+
+  // ログイン状態を監視する
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setSessionChecked(true);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   // レース一覧を取得する
   useEffect(() => {
     fetchRaces().then(setRaces);
   }, []);
 
-  // 起動時に保存済みの知見データを読み込む
+  // ログイン中ユーザーの知見ルールを読み込む
   useEffect(() => {
-    (async () => {
-      const saved = await getItem(RULES_STORAGE_KEY);
-      if (saved) {
-        if (saved.attrRules) setAttrRules(saved.attrRules);
-        if (saved.trendRules) setTrendRules(saved.trendRules);
-      }
-      setLoaded(true);
-    })();
-  }, []);
+    if (!session?.user) return;
+    fetchRules(session.user.id).then(({ attrRules, trendRules }) => {
+      setAttrRules(attrRules);
+      setTrendRules(trendRules);
+    });
+  }, [session?.user?.id]);
 
-  // 知見データが変わるたびに保存する(初回読み込み完了後のみ)
-  useEffect(() => {
-    if (!loaded) return;
-    (async () => {
-      setSaveState("saving");
-      const ok = await setItem(RULES_STORAGE_KEY, { attrRules, trendRules });
-      setSaveState(ok ? "saved" : "error");
-    })();
-  }, [attrRules, trendRules, loaded]);
+  const handleAddAttrRule = async (rule) => {
+    setSaveState("saving");
+    try {
+      const saved = await insertAttrRule(session.user.id, rule);
+      setAttrRules((prev) => [...prev, saved]);
+      setSaveState("saved");
+    } catch (e) {
+      setSaveState("error");
+    }
+  };
+
+  const handleDeleteAttrRule = async (id) => {
+    setSaveState("saving");
+    try {
+      await deleteAttrRule(id);
+      setAttrRules((prev) => prev.filter((r) => r.id !== id));
+      setSaveState("saved");
+    } catch (e) {
+      setSaveState("error");
+    }
+  };
+
+  const handleAddTrendRule = async (rule) => {
+    setSaveState("saving");
+    try {
+      const saved = await insertTrendRule(session.user.id, rule);
+      setTrendRules((prev) => [...prev, saved]);
+      setSaveState("saved");
+    } catch (e) {
+      setSaveState("error");
+    }
+  };
+
+  const handleDeleteTrendRule = async (id) => {
+    setSaveState("saving");
+    try {
+      await deleteTrendRule(id);
+      setTrendRules((prev) => prev.filter((r) => r.id !== id));
+      setSaveState("saved");
+    } catch (e) {
+      setSaveState("error");
+    }
+  };
+
+  if (!sessionChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: PAPER, color: INK }}>
+        読み込み中…
+      </div>
+    );
+  }
+
+  if (isSupabaseConfigured && !session) {
+    return <AuthScreen />;
+  }
 
   return (
     <div className="min-h-screen max-w-md mx-auto relative" style={{ background: PAPER, fontFamily: "'Zen Old Mincho','Shippori Mincho',serif" }}>
-      <Masthead raceCount={races.length} />
+      <Masthead
+        raceCount={races.length}
+        userEmail={session?.user?.email}
+        onLogout={() => supabase.auth.signOut()}
+      />
 
       {tab === "race" &&
         (selectedRace ? (
@@ -61,9 +127,11 @@ export default function App() {
         <RuleForm
           races={races}
           attrRules={attrRules}
-          setAttrRules={setAttrRules}
           trendRules={trendRules}
-          setTrendRules={setTrendRules}
+          onAddAttrRule={handleAddAttrRule}
+          onDeleteAttrRule={handleDeleteAttrRule}
+          onAddTrendRule={handleAddTrendRule}
+          onDeleteTrendRule={handleDeleteTrendRule}
           saveState={saveState}
         />
       )}

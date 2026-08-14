@@ -1,9 +1,18 @@
 import { useState } from "react";
 import { Plus, X, Sparkles, Flag, BookMarked } from "lucide-react";
-import { ATTR_TYPES, TREND_TYPES } from "../data/mockRules";
+import { ATTR_TYPES, TREND_TYPES } from "../data/ruleOptions";
 import { PAPER, PAPER_CARD, INK, RED, MUTED, LINE } from "../lib/colors";
 
-export default function RuleForm({ races, attrRules, setAttrRules, trendRules, setTrendRules, saveState }) {
+export default function RuleForm({
+  races,
+  attrRules,
+  trendRules,
+  onAddAttrRule,
+  onDeleteAttrRule,
+  onAddTrendRule,
+  onDeleteTrendRule,
+  saveState,
+}) {
   const [tab, setTab] = useState("attr");
   const [attrType, setAttrType] = useState(ATTR_TYPES[0]);
   const [attrValue, setAttrValue] = useState("");
@@ -17,26 +26,19 @@ export default function RuleForm({ races, attrRules, setAttrRules, trendRules, s
 
   const addAttr = () => {
     if (!attrValue.trim()) return;
-    setAttrRules([
-      ...attrRules,
-      { id: `a${Date.now()}`, type: attrType, value: attrValue.trim(), score: Number(attrScore) },
-    ]);
+    onAddAttrRule({ type: attrType, value: attrValue.trim(), score: Number(attrScore) });
     setAttrValue("");
   };
 
   const addTrend = () => {
     if (!trendValue.trim() || !trendLabel.trim()) return;
-    setTrendRules([
-      ...trendRules,
-      {
-        id: `t${Date.now()}`,
-        race: trendRace,
-        type: trendType,
-        value: trendValue.trim(),
-        score: Number(trendScore),
-        label: trendLabel.trim(),
-      },
-    ]);
+    onAddTrendRule({
+      race: trendRace,
+      type: trendType,
+      value: trendValue.trim(),
+      score: Number(trendScore),
+      label: trendLabel.trim(),
+    });
     setTrendValue("");
     setTrendLabel("");
   };
@@ -56,7 +58,7 @@ export default function RuleForm({ races, attrRules, setAttrRules, trendRules, s
         </span>
       </div>
       <p className="text-xs mb-4" style={{ color: MUTED }}>
-        あなただけの予想ルールを貯めていこう。入力内容はこの端末に自動保存されます
+        あなただけの予想ルールを貯めていこう。入力内容はあなたのアカウントに自動保存されます
       </p>
 
       <div className="flex gap-2 mb-4">
@@ -226,7 +228,7 @@ export default function RuleForm({ races, attrRules, setAttrRules, trendRules, s
                 <span className="font-semibold px-1.5 py-0.5 mr-1.5" style={{ border: `1px solid ${INK}`, color: INK }}>
                   {r.type ? r.type : r.race}
                 </span>
-                <span style={{ color: INK }}>{r.value ? r.value : r.label}</span>
+                <span style={{ color: INK }}>{r.race ? r.label : r.value}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold" style={{ color: r.score >= 0 ? INK : RED }}>
@@ -234,11 +236,7 @@ export default function RuleForm({ races, attrRules, setAttrRules, trendRules, s
                   {r.score}
                 </span>
                 <button
-                  onClick={() =>
-                    r.type
-                      ? setAttrRules(attrRules.filter((x) => x.id !== r.id))
-                      : setTrendRules(trendRules.filter((x) => x.id !== r.id))
-                  }
+                  onClick={() => (r.race ? onDeleteTrendRule(r.id) : onDeleteAttrRule(r.id))}
                 >
                   <X size={13} color={MUTED} />
                 </button>

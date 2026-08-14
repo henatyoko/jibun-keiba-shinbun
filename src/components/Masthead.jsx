@@ -1,6 +1,6 @@
 import { PAPER, INK } from "../lib/colors";
 
-export default function Masthead({ raceCount }) {
+export default function Masthead({ raceCount, userEmail, onLogout }) {
   return (
     <div
       className="px-4 pt-4 pb-2 sticky top-0 z-10"
@@ -17,8 +17,18 @@ export default function Masthead({ raceCount }) {
           号外
         </span>
       </div>
-      <div className="text-[10px] mt-0.5" style={{ color: PAPER, opacity: 0.7 }}>
-        My知見反映版・第{raceCount}競走号
+      <div className="flex items-center justify-between mt-0.5">
+        <div className="text-[10px]" style={{ color: PAPER, opacity: 0.7 }}>
+          My知見反映版・第{raceCount}競走号
+        </div>
+        {userEmail && (
+          <div className="flex items-center gap-2 text-[10px]" style={{ color: PAPER, opacity: 0.7 }}>
+            <span className="truncate max-w-[120px]">{userEmail}</span>
+            <button onClick={onLogout} className="underline shrink-0">
+              ログアウト
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
