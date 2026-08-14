@@ -15,7 +15,8 @@ import {
   deleteTrendRule,
 } from "./lib/rulesRepository";
 import { supabase, isSupabaseConfigured } from "./lib/supabaseClient";
-import { PAPER, INK, GUTTER, HORSE_PATTERN_BG } from "./lib/colors";
+import { PAPER, INK, GUTTER } from "./lib/colors";
+import horseJockeyImg from "./assets/horse-jockey.png";
 
 export default function App() {
   const [tab, setTab] = useState("race");
@@ -117,7 +118,16 @@ export default function App() {
       {/* PC表示時、中央カラムの外側の暗い余白にうっすら見える馬柄パターン */}
       <div
         className="fixed inset-0 pointer-events-none"
-        style={{ backgroundImage: HORSE_PATTERN_BG, backgroundRepeat: "repeat", opacity: 0.18 }}
+        style={{
+          maskImage: `url(${horseJockeyImg})`,
+          WebkitMaskImage: `url(${horseJockeyImg})`,
+          maskRepeat: "space",
+          WebkitMaskRepeat: "space",
+          maskSize: "150px 126px",
+          WebkitMaskSize: "150px 126px",
+          backgroundColor: PAPER,
+          opacity: 0.16,
+        }}
       />
 
       <Masthead

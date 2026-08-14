@@ -6,7 +6,7 @@ export const RED = "#A9342A";
 export const MUTED = "#7A7166";
 export const LINE = "#2B2622";
 // PC表示時の左右余白用、紙色を暗くしたブラウン
-export const GUTTER = "#5C4A3A";
+export const GUTTER = "#4E3F31";
 
 // 予想印(競馬新聞の伝統的な記号)
 export const MARKS = ["◎", "○", "▲", "△", "穴"];
@@ -22,10 +22,3 @@ export const WAKU_COLORS = {
   7: { bg: "#B5651D", text: PAPER, border: "#B5651D" },
   8: { bg: "#A5507A", text: PAPER, border: "#A5507A" },
 };
-
-// PC表示時、中央カラムの左右の暗い余白に敷く馬柄パターン(将棋の駒風の馬アイコンを散らす)
-const HORSE_TILE_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'>
-  <text x='0' y='95' font-size='90' font-family='serif' fill='${PAPER}'>♞</text>
-  <text x='115' y='205' font-size='90' font-family='serif' fill='${PAPER}'>♞</text>
-</svg>`;
-export const HORSE_PATTERN_BG = `url("data:image/svg+xml,${encodeURIComponent(HORSE_TILE_SVG)}")`;
