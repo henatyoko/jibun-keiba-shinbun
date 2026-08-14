@@ -15,7 +15,7 @@ import {
   deleteTrendRule,
 } from "./lib/rulesRepository";
 import { supabase, isSupabaseConfigured } from "./lib/supabaseClient";
-import { PAPER, INK, HORSE_PATTERN_BG } from "./lib/colors";
+import { PAPER, INK, GUTTER, HORSE_PATTERN_BG } from "./lib/colors";
 
 export default function App() {
   const [tab, setTab] = useState("race");
@@ -113,7 +113,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen relative" style={{ background: INK, fontFamily: "'Zen Old Mincho','Shippori Mincho',serif" }}>
+    <div className="min-h-screen relative" style={{ background: GUTTER, fontFamily: "'Zen Old Mincho','Shippori Mincho',serif" }}>
       {/* PC表示時、中央カラムの外側の暗い余白にうっすら見える馬柄パターン */}
       <div
         className="fixed inset-0 pointer-events-none"

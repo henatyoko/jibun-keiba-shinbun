@@ -5,6 +5,8 @@ export const INK = "#2B2622";
 export const RED = "#A9342A";
 export const MUTED = "#7A7166";
 export const LINE = "#2B2622";
+// PC表示時の左右余白用、紙色を暗くしたブラウン
+export const GUTTER = "#5C4A3A";
 
 // 予想印(競馬新聞の伝統的な記号)
 export const MARKS = ["◎", "○", "▲", "△", "穴"];
