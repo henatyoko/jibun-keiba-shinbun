@@ -46,7 +46,8 @@ body {
 
 .horse-run-track span {
   position: absolute;
-  top: 0;
+  top: 50%;
+  margin-top: -14px;
   font-size: 24px;
   display: inline-block;
   animation:
