@@ -20,10 +20,19 @@ body {
 
 @keyframes horse-run {
   0% {
-    transform: translateX(-10%);
+    transform: translateX(0) scaleX(1);
+  }
+  49% {
+    transform: translateX(90px) scaleX(1);
+  }
+  50% {
+    transform: translateX(90px) scaleX(-1);
+  }
+  99% {
+    transform: translateX(0) scaleX(-1);
   }
   100% {
-    transform: translateX(110%);
+    transform: translateX(0) scaleX(1);
   }
 }
 
@@ -39,18 +48,23 @@ body {
 
 .horse-run-track {
   position: relative;
-  width: 100%;
+  width: 120px;
   height: 28px;
-  overflow: hidden;
+  margin: 0 auto;
 }
 
 .horse-run-track span {
   position: absolute;
   top: 50%;
+  left: 0;
   margin-top: -14px;
   font-size: 24px;
   display: inline-block;
-  animation:
-    horse-run 1.6s linear infinite,
-    horse-bob 0.3s ease-in-out infinite;
+  animation: horse-run 2.4s ease-in-out infinite;
+}
+
+.horse-run-track span b {
+  display: inline-block;
+  font-style: normal;
+  animation: horse-bob 0.3s ease-in-out infinite;
 }

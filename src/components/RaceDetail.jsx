@@ -117,7 +117,9 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
             style={{ background: "rgba(241, 233, 216, 0.9)" }}
           >
             <div className="horse-run-track">
-              <span>🐎</span>
+              <span>
+                <b>🐎</b>
+              </span>
             </div>
             <p className="text-xs" style={{ color: MUTED }}>
               過去成績・血統・AI評価を取得中…
