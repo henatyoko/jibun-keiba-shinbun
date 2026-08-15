@@ -110,17 +110,21 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
         {race.place}
         {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
       </p>
-      {loadingPast ? (
-        <div className="py-16 flex flex-col items-center gap-3">
+      <div className="relative">
+        {loadingPast && (
           <div
-            className="w-8 h-8 rounded-full animate-spin"
-            style={{ border: `3px solid ${LINE}`, borderTopColor: RED }}
-          />
-          <p className="text-xs" style={{ color: MUTED }}>
-            過去成績・血統・AI評価を取得中…
-          </p>
-        </div>
-      ) : (
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 pt-10"
+            style={{ background: "rgba(241, 233, 216, 0.85)" }}
+          >
+            <div
+              className="w-8 h-8 rounded-full animate-spin"
+              style={{ border: `3px solid ${LINE}`, borderTopColor: RED }}
+            />
+            <p className="text-xs" style={{ color: MUTED }}>
+              過去成績・血統・AI評価を取得中…
+            </p>
+          </div>
+        )}
       <div style={{ border: `1.5px solid ${INK}` }}>
         {scored.map((h, idx) => (
           <div
@@ -209,7 +213,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
           </div>
         ))}
       </div>
-      )}
+      </div>
     </div>
   );
 }
