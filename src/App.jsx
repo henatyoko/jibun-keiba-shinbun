@@ -134,21 +134,21 @@ export default function App() {
           ) : (
             <RaceList races={races} onSelect={setSelectedRace} />
           ))}
-        {tab === "rules" &&
-          (session ? (
+        {tab === "rules" && (
+          <>
             <RuleForm
               races={races}
-              attrRules={attrRules}
-              trendRules={trendRules}
-              onAddAttrRule={handleAddAttrRule}
-              onDeleteAttrRule={handleDeleteAttrRule}
-              onAddTrendRule={handleAddTrendRule}
-              onDeleteTrendRule={handleDeleteTrendRule}
-              saveState={saveState}
+              attrRules={session ? attrRules : []}
+              trendRules={session ? trendRules : []}
+              onAddAttrRule={session ? handleAddAttrRule : () => {}}
+              onDeleteAttrRule={session ? handleDeleteAttrRule : () => {}}
+              onAddTrendRule={session ? handleAddTrendRule : () => {}}
+              onDeleteTrendRule={session ? handleDeleteTrendRule : () => {}}
+              saveState={session ? saveState : "idle"}
             />
-          ) : (
-            <AuthScreen />
-          ))}
+            {!session && <AuthScreen />}
+          </>
+        )}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 z-20" style={{ background: INK, borderTop: `2px solid ${PAPER}` }}>
