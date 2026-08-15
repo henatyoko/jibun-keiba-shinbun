@@ -132,6 +132,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
             style={{
               background: idx === 0 ? "#F3E4C8" : PAPER_CARD,
               borderBottom: idx < scored.length - 1 ? `1px solid ${LINE}` : "none",
+              minHeight: "150px",
             }}
           >
             <div className="flex items-center gap-2.5 mb-1.5">
