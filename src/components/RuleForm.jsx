@@ -20,7 +20,12 @@ export default function RuleForm({
   const [attrValue, setAttrValue] = useState("");
   const [attrScore, setAttrScore] = useState(2);
 
-  const [trendRace, setTrendRace] = useState(races[0]?.name ?? "");
+  // 傾向ルールの対象レースは、同名の一般戦(2歳未勝利など)が大量に並んで選びにくいため
+  // 重賞(G1〜G3)に絞る。重賞が無い日は全レースにフォールバックする。
+  const gradedRaces = races.filter((r) => /^J?G[1-3]$/.test(r.grade));
+  const trendRaceOptions = gradedRaces.length > 0 ? gradedRaces : races;
+
+  const [trendRace, setTrendRace] = useState(trendRaceOptions[0]?.name ?? "");
   const [trendType, setTrendType] = useState(TREND_TYPES[0]);
   const [trendValue, setTrendValue] = useState("");
   const [trendScore, setTrendScore] = useState(-3);
@@ -171,7 +176,7 @@ export default function RuleForm({
             className="w-full px-3 py-2 text-sm mb-3 outline-none"
             style={inputStyle}
           >
-            {races.map((r) => (
+            {trendRaceOptions.map((r) => (
               <option key={r.id} value={r.name}>
                 {r.name}
               </option>
