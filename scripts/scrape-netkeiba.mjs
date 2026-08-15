@@ -35,8 +35,10 @@ function formatDate(date) {
 async function fetchRaceIdsForDate(kaisaiDate) {
   const url = `https://race.netkeiba.com/top/race_list.html?kaisai_date=${kaisaiDate}`;
   const res = await fetch(url, { headers: HEADERS });
+  console.log(`GET ${url} -> ${res.status}`);
   if (!res.ok) return [];
   const html = await res.text();
+  console.log(`  html length: ${html.length}`);
   const $ = cheerio.load(html);
   const ids = new Set();
   $('a[href*="shutuba.html?race_id"]').each((_, el) => {
