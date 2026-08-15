@@ -151,7 +151,7 @@ export default function App() {
           ))}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0" style={{ background: INK, borderTop: `2px solid ${PAPER}` }}>
+      <div className="fixed bottom-0 left-0 right-0 z-20" style={{ background: INK, borderTop: `2px solid ${PAPER}` }}>
         <div className="max-w-md mx-auto flex">
           {[
             { key: "race", label: "レース", icon: Flag },

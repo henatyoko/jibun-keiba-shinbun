@@ -113,14 +113,13 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
       <div className="relative">
         {loadingPast && (
           <div
-            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 pt-10"
-            style={{ background: "rgba(241, 233, 216, 0.85)" }}
+            className="absolute inset-0 z-10 flex flex-col items-start pt-3 gap-2"
+            style={{ background: "rgba(241, 233, 216, 0.9)" }}
           >
-            <div
-              className="w-8 h-8 rounded-full animate-spin"
-              style={{ border: `3px solid ${LINE}`, borderTopColor: RED }}
-            />
-            <p className="text-xs" style={{ color: MUTED }}>
+            <div className="horse-run-track">
+              <span>🐎</span>
+            </div>
+            <p className="text-xs self-center" style={{ color: MUTED }}>
               過去成績・血統・AI評価を取得中…
             </p>
           </div>
