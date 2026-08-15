@@ -24,6 +24,7 @@ export async function fetchRaces() {
     place: race.place,
     raceNumber: race.race_number,
     distance: race.distance,
+    rawDate: race.race_date,
     date: formatRaceDate(race.race_date, race.post_time),
     horses: race.race_entries.map((h) => ({
       num: h.num,
