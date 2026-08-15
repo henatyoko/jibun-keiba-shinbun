@@ -180,10 +180,10 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               minHeight: "150px",
             }}
           >
-            <div className="flex items-center gap-2.5 mb-1.5">
+            <div className="flex items-start gap-2.5 mb-1.5">
               <div
-                className="text-xl font-black w-6 text-center shrink-0"
-                style={{ color: idx === 0 ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
+                className="font-black w-6 text-center shrink-0"
+                style={{ color: idx === 0 ? RED : INK, fontFamily: "'Shippori Mincho', serif", fontSize: "20px" }}
               >
                 {MARKS[idx] || ""}
               </div>
@@ -258,15 +258,15 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
             )}
 
             {userId && (
-              <div className="flex items-center gap-2 pl-[62px] mt-2">
-                <span className="text-xs shrink-0" style={{ color: MUTED }}>
+              <div className="flex items-center gap-1.5 pl-[62px] mt-1.5">
+                <span className="text-[0.625rem] shrink-0" style={{ color: MUTED }}>
                   パドック
                 </span>
                 {PADDOCK_GRADES.map((g) => (
                   <button
                     key={g}
                     onClick={() => handlePaddockGrade(h.num, h.paddockGrade === g ? null : g)}
-                    className="flex-1 max-w-16 py-2.5 text-sm font-bold"
+                    className="flex-1 max-w-16 py-1 text-[0.625rem] font-bold"
                     style={{
                       background: h.paddockGrade === g ? INK : "transparent",
                       color: h.paddockGrade === g ? PAPER_CARD : INK,
