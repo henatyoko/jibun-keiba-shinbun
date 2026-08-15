@@ -113,7 +113,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
       <div className="relative">
         {loadingPast && (
           <div
-            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2"
+            className="fixed inset-0 z-[5] flex flex-col items-center justify-center gap-2"
             style={{ background: "rgba(241, 233, 216, 0.9)" }}
           >
             <div className="horse-run-track">
