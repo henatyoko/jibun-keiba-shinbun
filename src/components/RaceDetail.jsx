@@ -266,14 +266,11 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                 <div className="w-6 shrink-0" aria-hidden="true" />
                 <div style={{ width: 28 }} className="shrink-0" aria-hidden="true" />
                 <div className="flex items-center gap-1.5 flex-1">
-                  <span className="text-[0.625rem] shrink-0" style={{ color: MUTED }}>
-                    パドック
-                  </span>
                   {PADDOCK_GRADES.map((g) => (
                     <button
                       key={g}
                       onClick={() => handlePaddockGrade(h.num, h.paddockGrade === g ? null : g)}
-                      className="flex-1 max-w-16 py-1 text-[0.625rem] font-bold"
+                      className="max-w-16 py-1 px-2.5 text-[0.625rem] font-bold"
                       style={{
                         background: h.paddockGrade === g ? INK : "transparent",
                         color: h.paddockGrade === g ? PAPER_CARD : INK,
@@ -283,6 +280,9 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                       {g}
                     </button>
                   ))}
+                  <span className="text-[0.625rem] shrink-0" style={{ color: MUTED }}>
+                    パドック
+                  </span>
                 </div>
               </div>
             )}
