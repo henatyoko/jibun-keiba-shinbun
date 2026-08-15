@@ -39,6 +39,8 @@ async function fetchRaceIdsForDate(kaisaiDate) {
   if (!res.ok) return [];
   const html = await res.text();
   console.log(`  html length: ${html.length}`);
+  console.log(`  title: ${(html.match(/<title>([^<]*)<\/title>/) || [])[1]}`);
+  console.log(`  snippet: ${html.replace(/\s+/g, " ").slice(0, 300)}`);
   const $ = cheerio.load(html);
   const ids = new Set();
   $('a[href*="shutuba.html?race_id"]').each((_, el) => {
