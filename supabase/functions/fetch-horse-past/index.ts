@@ -14,7 +14,16 @@ const HEADERS = {
 
 const CACHE_HOURS = 72;
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: CORS_HEADERS });
+  }
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
@@ -127,6 +136,6 @@ async function fetchHorsePastRaces(horseId: string) {
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
