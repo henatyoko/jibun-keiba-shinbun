@@ -232,50 +232,58 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
             </div>
 
             {(!h.hasPastData || h.applied.length > 0) && (
-              <div className="flex flex-wrap gap-1.5 pl-[62px]">
-                {!h.hasPastData && (
-                  <span
-                    className="text-[0.625rem] px-1.5 py-0.5 font-semibold"
-                    style={{ border: `1px dashed ${MUTED}`, color: MUTED }}
-                  >
-                    評価データなし・他の補正のみ反映
-                  </span>
-                )}
-                {h.applied.map((a, i) => (
-                  <span
-                    key={i}
-                    className="text-[0.625rem] px-1.5 py-0.5 font-semibold"
-                    style={{
-                      border: `1px solid ${a.score > 0 ? INK : RED}`,
-                      color: a.score > 0 ? INK : RED,
-                    }}
-                  >
-                    {a.label} {a.score > 0 ? "+" : ""}
-                    {a.score}
-                  </span>
-                ))}
+              <div className="flex items-start gap-2.5">
+                <div className="w-6 shrink-0" aria-hidden="true" />
+                <div style={{ width: 28 }} className="shrink-0" aria-hidden="true" />
+                <div className="flex flex-wrap gap-1.5 flex-1">
+                  {!h.hasPastData && (
+                    <span
+                      className="text-[0.625rem] px-1.5 py-0.5 font-semibold"
+                      style={{ border: `1px dashed ${MUTED}`, color: MUTED }}
+                    >
+                      評価データなし・他の補正のみ反映
+                    </span>
+                  )}
+                  {h.applied.map((a, i) => (
+                    <span
+                      key={i}
+                      className="text-[0.625rem] px-1.5 py-0.5 font-semibold"
+                      style={{
+                        border: `1px solid ${a.score > 0 ? INK : RED}`,
+                        color: a.score > 0 ? INK : RED,
+                      }}
+                    >
+                      {a.label} {a.score > 0 ? "+" : ""}
+                      {a.score}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
 
             {userId && (
-              <div className="flex items-center gap-1.5 pl-[62px] mt-1.5">
-                <span className="text-[0.625rem] shrink-0" style={{ color: MUTED }}>
-                  パドック
-                </span>
-                {PADDOCK_GRADES.map((g) => (
-                  <button
-                    key={g}
-                    onClick={() => handlePaddockGrade(h.num, h.paddockGrade === g ? null : g)}
-                    className="flex-1 max-w-16 py-1 text-[0.625rem] font-bold"
-                    style={{
-                      background: h.paddockGrade === g ? INK : "transparent",
-                      color: h.paddockGrade === g ? PAPER_CARD : INK,
-                      border: `1px solid ${INK}`,
-                    }}
-                  >
-                    {g}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2.5 mt-1.5">
+                <div className="w-6 shrink-0" aria-hidden="true" />
+                <div style={{ width: 28 }} className="shrink-0" aria-hidden="true" />
+                <div className="flex items-center gap-1.5 flex-1">
+                  <span className="text-[0.625rem] shrink-0" style={{ color: MUTED }}>
+                    パドック
+                  </span>
+                  {PADDOCK_GRADES.map((g) => (
+                    <button
+                      key={g}
+                      onClick={() => handlePaddockGrade(h.num, h.paddockGrade === g ? null : g)}
+                      className="flex-1 max-w-16 py-1 text-[0.625rem] font-bold"
+                      style={{
+                        background: h.paddockGrade === g ? INK : "transparent",
+                        color: h.paddockGrade === g ? PAPER_CARD : INK,
+                        border: `1px solid ${INK}`,
+                      }}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
