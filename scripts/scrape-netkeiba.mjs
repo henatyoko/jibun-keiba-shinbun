@@ -32,15 +32,26 @@ function formatDate(date) {
   return `${y}${m}${d}`;
 }
 
-async function fetchRaceIdsForDate(kaisaiDate) {
-  const url = `https://race.netkeiba.com/top/race_list.html?kaisai_date=${kaisaiDate}`;
+// netkeibaのレース一覧は、まず開催日一覧(group付き)を取得し、
+// そのgroupを使って実際のレース一覧フラグメントを取得する2段階構成になっている。
+async function fetchGroupForDate(kaisaiDate) {
+  const url = `https://race.netkeiba.com/top/race_list_get_date_list.html?kaisai_date=${kaisaiDate}&encoding=UTF-8`;
   const res = await fetch(url, { headers: HEADERS });
-  console.log(`GET ${url} -> ${res.status}`);
+  if (!res.ok) return null;
+  const html = await res.text();
+  const $ = cheerio.load(html);
+  const li = $(`li[date="${kaisaiDate}"]`).first();
+  return li.attr("group") || null;
+}
+
+async function fetchRaceIdsForDate(kaisaiDate) {
+  const group = await fetchGroupForDate(kaisaiDate);
+  if (!group) return [];
+
+  const url = `https://race.netkeiba.com/top/race_list_sub.html?kaisai_date=${kaisaiDate}&current_group=${group}`;
+  const res = await fetch(url, { headers: HEADERS });
   if (!res.ok) return [];
   const html = await res.text();
-  console.log(`  html length: ${html.length}`);
-  console.log(`  title: ${(html.match(/<title>([^<]*)<\/title>/) || [])[1]}`);
-  console.log(`  snippet: ${html.replace(/\s+/g, " ").slice(0, 300)}`);
   const $ = cheerio.load(html);
   const ids = new Set();
   $('a[href*="shutuba.html?race_id"]').each((_, el) => {
