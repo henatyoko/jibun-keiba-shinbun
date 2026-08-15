@@ -1,15 +1,32 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import GradeChip from "./GradeChip";
 import WakuBadge from "./WakuBadge";
-import { scoreHorse } from "../lib/scoring";
+import { scoreHorse, baseScoreFromPastRaces } from "../lib/scoring";
+import { fetchHorsePastRaces } from "../lib/horsePastRepository";
 import { PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
 
 export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
+  const [pastRacesByHorse, setPastRacesByHorse] = useState({});
+  const [loadingPast, setLoadingPast] = useState(true);
+
+  useEffect(() => {
+    setLoadingPast(true);
+    const horseIds = race.horses.map((h) => h.horseId);
+    fetchHorsePastRaces(horseIds).then((data) => {
+      setPastRacesByHorse(data);
+      setLoadingPast(false);
+    });
+  }, [race]);
+
   const scored = useMemo(() => {
     return race.horses
-      .map((h) => ({ ...h, ...scoreHorse(h, attrRules, trendRules, race.name) }))
+      .map((h) => {
+        const past = pastRacesByHorse[h.horseId];
+        const base = past ? baseScoreFromPastRaces(past) : h.base;
+        return { ...h, base, past, ...scoreHorse({ ...h, base }, attrRules, trendRules, race.name) };
+      })
       .sort((a, b) => b.total - a.total);
-  }, [race, attrRules, trendRules]);
+  }, [race, attrRules, trendRules, pastRacesByHorse]);
 
   return (
     <div className="px-4 pt-4 pb-24">
@@ -25,10 +42,15 @@ export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
       <h1 className="text-xl font-bold mb-1" style={{ color: INK, fontFamily: "'Shippori Mincho', serif" }}>
         {race.name}
       </h1>
-      <p className="text-xs mb-4" style={{ color: MUTED }}>
+      <p className="text-xs mb-1" style={{ color: MUTED }}>
         {race.place}
         {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
       </p>
+      {loadingPast && (
+        <p className="text-[10px] mb-3" style={{ color: MUTED }}>
+          過去成績を取得中…
+        </p>
+      )}
 
       <div style={{ border: `1.5px solid ${INK}` }}>
         {scored.map((h, idx) => (
@@ -55,6 +77,22 @@ export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
                 <div className="text-[10px]" style={{ color: MUTED }}>
                   {h.age}歳・{h.jockey}・{h.sire}
                 </div>
+                {h.past && h.past.length > 0 && (
+                  <div className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: MUTED }}>
+                    <span>近{h.past.length}走:</span>
+                    <span className="flex gap-1">
+                      {h.past.map((r, i) => (
+                        <span
+                          key={i}
+                          className="font-bold"
+                          style={{ color: r.finish_position === 1 ? RED : r.finish_position && r.finish_position <= 3 ? INK : MUTED }}
+                        >
+                          {r.finish_position ?? "?"}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="text-right">
                 <div

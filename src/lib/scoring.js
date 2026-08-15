@@ -25,3 +25,20 @@ export function scoreHorse(horse, attrRules, trendRules, raceName) {
   const bonus = applied.reduce((sum, a) => sum + a.score, 0);
   return { total: horse.base + bonus, bonus, applied };
 }
+
+// 直近成績(着順)から基礎スコアを算出する簡易ロジック。
+// 1着ほど加点、着外ほど減点。データが無ければ既定値(70)のまま。
+export function baseScoreFromPastRaces(pastRaces) {
+  if (!pastRaces || pastRaces.length === 0) return 70;
+
+  const points = pastRaces.map((r) => {
+    if (!r.finish_position) return 0;
+    if (r.finish_position === 1) return 8;
+    if (r.finish_position <= 3) return 4;
+    if (r.finish_position <= 5) return 1;
+    return -2;
+  });
+
+  const avg = points.reduce((sum, p) => sum + p, 0) / points.length;
+  return Math.round(70 + avg * 3);
+}

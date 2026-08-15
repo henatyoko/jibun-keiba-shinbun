@@ -108,8 +108,11 @@ async function fetchRace(raceId) {
     const horseName = cells[3];
     const sexAge = cells[4];
     const jockey = cells[6];
+    const horseLink = $(row).find('a[href*="/horse/"]').first().attr("href") || "";
+    const horseIdMatch = horseLink.match(/\/horse\/(\w+)/);
+    const horseId = horseIdMatch ? horseIdMatch[1] : null;
     if (Number.isInteger(waku) && Number.isInteger(num) && horseName && jockey) {
-      entries.push({ waku, num, horse_name: horseName, jockey, age: parseAge(sexAge) });
+      entries.push({ waku, num, horse_name: horseName, horse_id: horseId, jockey, age: parseAge(sexAge) });
     }
   });
 

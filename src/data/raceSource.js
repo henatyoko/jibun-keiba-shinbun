@@ -11,7 +11,7 @@ export async function fetchRaces() {
 
   const { data: races, error } = await supabase
     .from("races")
-    .select("id, name, grade, place, race_number, distance, race_date, post_time, race_entries(num, waku, horse_name, sire, jockey, age)")
+    .select("id, name, grade, place, race_number, distance, race_date, post_time, race_entries(num, waku, horse_name, horse_id, sire, jockey, age)")
     .order("race_date", { ascending: true })
     .order("post_time", { ascending: true });
 
@@ -29,6 +29,7 @@ export async function fetchRaces() {
       num: h.num,
       waku: h.waku,
       name: h.horse_name,
+      horseId: h.horse_id,
       sire: h.sire,
       jockey: h.jockey,
       age: h.age,
