@@ -134,6 +134,7 @@ export default function App() {
               races={races}
               attrRules={attrRules}
               trendRules={trendRules}
+              userId={session?.user?.id}
               onBack={() => setSelectedRace(null)}
               onNavigate={setSelectedRace}
             />

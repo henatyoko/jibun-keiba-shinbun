@@ -2,15 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import GradeChip from "./GradeChip";
 import WakuBadge from "./WakuBadge";
-import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment } from "../lib/scoring";
+import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment, paddockAdjustment } from "../lib/scoring";
 import { fetchHorsePastRaces } from "../lib/horsePastRepository";
+import { fetchPaddockGrades, setPaddockGrade as savePaddockGrade } from "../lib/paddockRepository";
 import { PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
 
-export default function RaceDetail({ race, races, attrRules, trendRules, onBack, onNavigate }) {
+const PADDOCK_GRADES = ["A", "B", "無印"];
+
+export default function RaceDetail({ race, races, attrRules, trendRules, userId, onBack, onNavigate }) {
   const [pastRacesByHorse, setPastRacesByHorse] = useState({});
   const [notesByHorse, setNotesByHorse] = useState({});
   const [siresByHorse, setSiresByHorse] = useState({});
   const [profilesByHorse, setProfilesByHorse] = useState({});
+  const [paddockByNum, setPaddockByNum] = useState({});
   const [loadingPast, setLoadingPast] = useState(true);
 
   // 同じ開催日・同じ競馬場のレースをレース番号順に並べ、前後移動に使う。
@@ -37,6 +41,26 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
     });
   }, [race]);
 
+  // 自分で入力したパドック評価を読み込む(ログイン中のみ)
+  useEffect(() => {
+    if (!userId) {
+      setPaddockByNum({});
+      return;
+    }
+    fetchPaddockGrades(userId, race.id).then(setPaddockByNum);
+  }, [race.id, userId]);
+
+  const handlePaddockGrade = (num, grade) => {
+    if (!userId) return;
+    setPaddockByNum((prev) => {
+      const next = { ...prev };
+      if (grade) next[num] = grade;
+      else delete next[num];
+      return next;
+    });
+    savePaddockGrade(userId, race.id, num, grade).catch(() => {});
+  };
+
   const scored = useMemo(() => {
     return race.horses
       .map((h) => {
@@ -55,11 +79,14 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
         );
         const aiAdjustment = note?.scoreAdjustment ?? 0;
         const bias = courseBiasAdjustment(h.waku, race.place, race.distance);
+        const paddockGrade = paddockByNum[h.num];
+        const paddock = paddockAdjustment(paddockGrade);
         const extra = [
           ...(aiAdjustment !== 0 ? [{ label: "AI評価", score: aiAdjustment }] : []),
           ...(bias ? [{ label: bias.label, score: bias.score }] : []),
+          ...(paddock ? [{ label: paddock.label, score: paddock.score }] : []),
         ];
-        const extraTotal = aiAdjustment + (bias?.score ?? 0);
+        const extraTotal = aiAdjustment + (bias?.score ?? 0) + (paddock?.score ?? 0);
         const hasPastData = Boolean(past && past.length > 0);
         return {
           ...h,
@@ -68,6 +95,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
           note,
           sire,
           trainer,
+          paddockGrade,
           owner,
           hasPastData,
           total: total + extraTotal,
@@ -76,7 +104,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
         };
       })
       .sort((a, b) => b.total - a.total);
-  }, [race, attrRules, trendRules, pastRacesByHorse, notesByHorse, siresByHorse, profilesByHorse]);
+  }, [race, attrRules, trendRules, pastRacesByHorse, notesByHorse, siresByHorse, profilesByHorse, paddockByNum]);
 
   return (
     <div className="px-4 pt-4 pb-24">
@@ -220,6 +248,28 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
                     {a.label} {a.score > 0 ? "+" : ""}
                     {a.score}
                   </span>
+                ))}
+              </div>
+            )}
+
+            {userId && (
+              <div className="flex items-center gap-1.5 pl-[62px] mt-1.5">
+                <span className="text-[10px]" style={{ color: MUTED }}>
+                  パドック
+                </span>
+                {PADDOCK_GRADES.map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => handlePaddockGrade(h.num, h.paddockGrade === g ? null : g)}
+                    className="text-[10px] px-2 py-0.5 font-bold"
+                    style={{
+                      background: h.paddockGrade === g ? INK : "transparent",
+                      color: h.paddockGrade === g ? PAPER_CARD : INK,
+                      border: `1px solid ${INK}`,
+                    }}
+                  >
+                    {g}
+                  </button>
                 ))}
               </div>
             )}

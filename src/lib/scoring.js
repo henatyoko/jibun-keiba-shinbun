@@ -13,6 +13,14 @@ export function courseBiasAdjustment(waku, place, distanceStr) {
   return { label: bias.label, score };
 }
 
+// パドックで実際に見た印象(ユーザー自身の入力)による小さな補正。
+const PADDOCK_SCORE = { A: 3, B: 1, 無印: -2 };
+
+export function paddockAdjustment(grade) {
+  if (!grade || !(grade in PADDOCK_SCORE)) return null;
+  return { label: `パドック${grade}`, score: PADDOCK_SCORE[grade] };
+}
+
 // 属性ルール・傾向ルールを1頭の馬に適用し、合計スコアを算出する。
 export function scoreHorse(horse, attrRules, trendRules, raceName) {
   const applied = [];
