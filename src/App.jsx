@@ -123,7 +123,14 @@ export default function App() {
       <div className="max-w-md mx-auto relative pb-16" style={{ background: PAPER, minHeight: "100vh" }}>
         {tab === "race" &&
           (selectedRace ? (
-            <RaceDetail race={selectedRace} attrRules={attrRules} trendRules={trendRules} onBack={() => setSelectedRace(null)} />
+            <RaceDetail
+              race={selectedRace}
+              races={races}
+              attrRules={attrRules}
+              trendRules={trendRules}
+              onBack={() => setSelectedRace(null)}
+              onNavigate={setSelectedRace}
+            />
           ) : (
             <RaceList races={races} onSelect={setSelectedRace} />
           ))}

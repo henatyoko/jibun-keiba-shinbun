@@ -1,16 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import GradeChip from "./GradeChip";
 import WakuBadge from "./WakuBadge";
 import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment } from "../lib/scoring";
 import { fetchHorsePastRaces } from "../lib/horsePastRepository";
 import { PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
 
-export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
+export default function RaceDetail({ race, races, attrRules, trendRules, onBack, onNavigate }) {
   const [pastRacesByHorse, setPastRacesByHorse] = useState({});
   const [notesByHorse, setNotesByHorse] = useState({});
   const [siresByHorse, setSiresByHorse] = useState({});
   const [loadingPast, setLoadingPast] = useState(true);
+
+  // 同じ開催日・同じ競馬場のレースをレース番号順に並べ、前後移動に使う。
+  const { prevRace, nextRace } = useMemo(() => {
+    if (!races) return { prevRace: null, nextRace: null };
+    const siblings = races
+      .filter((r) => r.place === race.place && r.rawDate === race.rawDate)
+      .sort((a, b) => (a.raceNumber ?? 0) - (b.raceNumber ?? 0));
+    const idx = siblings.findIndex((r) => r.id === race.id);
+    return {
+      prevRace: idx > 0 ? siblings[idx - 1] : null,
+      nextRace: idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : null,
+    };
+  }, [races, race]);
 
   useEffect(() => {
     setLoadingPast(true);
@@ -37,12 +50,14 @@ export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
           ...(bias ? [{ label: bias.label, score: bias.score }] : []),
         ];
         const extraTotal = aiAdjustment + (bias?.score ?? 0);
+        const hasPastData = Boolean(past && past.length > 0);
         return {
           ...h,
           base,
           past,
           note,
           sire,
+          hasPastData,
           total: total + extraTotal,
           bonus: bonus + extraTotal,
           applied: [...applied, ...extra],
@@ -53,14 +68,35 @@ export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
 
   return (
     <div className="px-4 pt-4 pb-24">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 mb-3 px-3 py-2 text-sm font-bold active:opacity-70 transition-opacity"
-        style={{ color: PAPER_CARD, background: RED, border: `1px solid ${RED}` }}
-      >
-        <ChevronLeft size={18} />
-        レース一覧に戻る
-      </button>
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold active:opacity-70 transition-opacity"
+          style={{ color: PAPER_CARD, background: RED, border: `1px solid ${RED}` }}
+        >
+          <ChevronLeft size={18} />
+          レース一覧に戻る
+        </button>
+        <div className="flex-1" />
+        <button
+          onClick={() => prevRace && onNavigate(prevRace)}
+          disabled={!prevRace}
+          className="flex items-center px-2 py-2 text-sm font-bold active:opacity-70 transition-opacity disabled:opacity-30"
+          style={{ color: INK, border: `1px solid ${INK}` }}
+        >
+          <ChevronLeft size={18} />
+          {prevRace?.raceNumber ? `${prevRace.raceNumber}R` : ""}
+        </button>
+        <button
+          onClick={() => nextRace && onNavigate(nextRace)}
+          disabled={!nextRace}
+          className="flex items-center px-2 py-2 text-sm font-bold active:opacity-70 transition-opacity disabled:opacity-30"
+          style={{ color: INK, border: `1px solid ${INK}` }}
+        >
+          {nextRace?.raceNumber ? `${nextRace.raceNumber}R` : ""}
+          <ChevronRight size={18} />
+        </button>
+      </div>
       <div className="flex items-center gap-2 mb-1">
         <GradeChip grade={race.grade} />
         <span className="text-xs" style={{ color: MUTED }}>
@@ -74,12 +110,17 @@ export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
         {race.place}
         {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
       </p>
-      {loadingPast && (
-        <p className="text-[10px] mb-3" style={{ color: MUTED }}>
-          過去成績を取得中…
-        </p>
-      )}
-
+      {loadingPast ? (
+        <div className="py-16 flex flex-col items-center gap-3">
+          <div
+            className="w-8 h-8 rounded-full animate-spin"
+            style={{ border: `3px solid ${LINE}`, borderTopColor: RED }}
+          />
+          <p className="text-xs" style={{ color: MUTED }}>
+            過去成績・血統・AI評価を取得中…
+          </p>
+        </div>
+      ) : (
       <div style={{ border: `1.5px solid ${INK}` }}>
         {scored.map((h, idx) => (
           <div
@@ -135,13 +176,21 @@ export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
                   {h.total}
                 </div>
                 <div className="text-[9px]" style={{ color: MUTED }}>
-                  基礎{h.base}
+                  {h.hasPastData ? `基礎${h.base}` : "基礎データなし"}
                 </div>
               </div>
             </div>
 
-            {h.applied.length > 0 && (
+            {(!h.hasPastData || h.applied.length > 0) && (
               <div className="flex flex-wrap gap-1.5 pl-[62px]">
+                {!h.hasPastData && (
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 font-semibold"
+                    style={{ border: `1px dashed ${MUTED}`, color: MUTED }}
+                  >
+                    評価データなし・他の補正のみ反映
+                  </span>
+                )}
                 {h.applied.map((a, i) => (
                   <span
                     key={i}
@@ -160,6 +209,7 @@ export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

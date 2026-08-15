@@ -58,27 +58,49 @@ Deno.serve(async (req) => {
 
   const staleBefore = new Date(Date.now() - CACHE_HOURS * 60 * 60 * 1000).toISOString();
 
-  for (const horseId of horseIds) {
-    const { data: cached } = await supabase
-      .from("horse_past_races")
-      .select("fetched_at")
-      .eq("horse_id", horseId)
-      .order("fetched_at", { ascending: false })
-      .limit(1);
-
-    const isFresh = cached && cached.length > 0 && cached[0].fetched_at > staleBefore;
-    if (isFresh) continue;
-
-    const races = await fetchHorsePastRaces(horseId);
-    if (races.length === 0) continue;
-
-    await supabase
-      .from("horse_past_races")
-      .upsert(
-        races.map((r) => ({ ...r, horse_id: horseId })),
-        { onConflict: "horse_id,race_date,race_name" }
-      );
+  // 過去成績→AIコメント生成のパイプラインと、血統(父馬名)取得は互いに依存しないので、
+  // 並行して走らせる(それぞれの内部でもnetkeiba/Claudeへの呼び出しを並列化している)。
+  try {
+    const [{ grouped, notes }, sires] = await Promise.all([
+      getPastRacesAndNotes(horseIds, horseNames, staleBefore),
+      getOrFetchSires(horseIds),
+    ]);
+    return json({ past: grouped, notes, sires }, 200);
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "取得に失敗しました" }, 500);
   }
+});
+
+async function getPastRacesAndNotes(
+  horseIds: string[],
+  horseNames: Record<string, string>,
+  staleBefore: string
+): Promise<{ grouped: Record<string, unknown[]>; notes: Record<string, { comment: string; scoreAdjustment: number }> }> {
+  const { data: cachedFreshness } = await supabase
+    .from("horse_past_races")
+    .select("horse_id, fetched_at")
+    .in("horse_id", horseIds)
+    .order("fetched_at", { ascending: false });
+
+  const staleHorseIds = horseIds.filter((id) => {
+    const latest = cachedFreshness?.find((c) => c.horse_id === id);
+    return !latest || latest.fetched_at <= staleBefore;
+  });
+
+  // 未キャッシュ・期限切れの馬だけ、netkeibaへの取得を並列に行う(1レース開くたびに
+  // 最大でも出走頭数分=十数件程度なので、低頻度アクセスの範囲内)。
+  await Promise.all(
+    staleHorseIds.map(async (horseId) => {
+      const races = await fetchHorsePastRaces(horseId);
+      if (races.length === 0) return;
+      await supabase
+        .from("horse_past_races")
+        .upsert(
+          races.map((r) => ({ ...r, horse_id: horseId })),
+          { onConflict: "horse_id,race_date,race_name" }
+        );
+    })
+  );
 
   const { data, error } = await supabase
     .from("horse_past_races")
@@ -86,7 +108,7 @@ Deno.serve(async (req) => {
     .in("horse_id", horseIds)
     .order("race_date", { ascending: false });
 
-  if (error) return json({ error: error.message }, 500);
+  if (error) throw new Error(error.message);
 
   const grouped: Record<string, unknown[]> = {};
   for (const row of data) {
@@ -97,10 +119,9 @@ Deno.serve(async (req) => {
   }
 
   const notes = await getOrGenerateHorseNotes(horseIds, grouped, horseNames, staleBefore);
-  const sires = await getOrFetchSires(horseIds);
 
-  return json({ past: grouped, notes, sires }, 200);
-});
+  return { grouped, notes };
+}
 
 // 各馬の父馬名(血統)を取得。父は不変なので一度キャッシュしたら再取得しない。
 // 新馬(過去成績が無い馬)でも血統ルールでスコアリングできるようにするための情報。
@@ -119,12 +140,14 @@ async function getOrFetchSires(horseIds: string[]): Promise<Record<string, strin
     else missingIds.push(id);
   }
 
-  for (const id of missingIds) {
-    const sire = await fetchSire(id);
-    if (!sire) continue;
-    sires[id] = sire;
-    await supabase.from("horse_sires").upsert({ horse_id: id, sire }, { onConflict: "horse_id" });
-  }
+  await Promise.all(
+    missingIds.map(async (id) => {
+      const sire = await fetchSire(id);
+      if (!sire) return;
+      sires[id] = sire;
+      await supabase.from("horse_sires").upsert({ horse_id: id, sire }, { onConflict: "horse_id" });
+    })
+  );
 
   return sires;
 }
