@@ -3,7 +3,7 @@ import { Wand2, Check, RotateCcw } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { PAPER, PAPER_CARD, INK, RED, MUTED } from "../lib/colors";
 
-export default function FreeTextRuleForm({ races, onAddAttrRule, onAddTrendRule }) {
+export default function FreeTextRuleForm({ races, onAddAttrRule, onAddTrendRule, locked = false, onLockedAttempt }) {
   const [text, setText] = useState("");
   const [status, setStatus] = useState("idle"); // idle | loading | preview | error
   const [errorMessage, setErrorMessage] = useState("");
@@ -42,9 +42,13 @@ export default function FreeTextRuleForm({ races, onAddAttrRule, onAddTrendRule 
         label: result.label,
       });
     }
-    setText("");
-    setResult(null);
-    setStatus("idle");
+    if (locked) {
+      onLockedAttempt?.();
+    } else {
+      setText("");
+      setResult(null);
+      setStatus("idle");
+    }
   };
 
   const handleRetry = () => {

@@ -13,6 +13,7 @@ export default function RuleForm({
   onAddTrendRule,
   onDeleteTrendRule,
   saveState,
+  locked = false,
 }) {
   const [tab, setTab] = useState("attr");
   const [attrType, setAttrType] = useState(ATTR_TYPES[0]);
@@ -24,11 +25,16 @@ export default function RuleForm({
   const [trendValue, setTrendValue] = useState("");
   const [trendScore, setTrendScore] = useState(-3);
   const [trendLabel, setTrendLabel] = useState("");
+  const [lockedNotice, setLockedNotice] = useState(false);
 
   const addAttr = () => {
     if (!attrValue.trim()) return;
     onAddAttrRule({ type: attrType, value: attrValue.trim(), score: Number(attrScore) });
-    setAttrValue("");
+    if (locked) {
+      setLockedNotice(true);
+    } else {
+      setAttrValue("");
+    }
   };
 
   const addTrend = () => {
@@ -40,8 +46,12 @@ export default function RuleForm({
       score: Number(trendScore),
       label: trendLabel.trim(),
     });
-    setTrendValue("");
-    setTrendLabel("");
+    if (locked) {
+      setLockedNotice(true);
+    } else {
+      setTrendValue("");
+      setTrendLabel("");
+    }
   };
 
   const inputStyle = { background: PAPER, border: `1px solid ${INK}`, color: INK };
@@ -86,7 +96,13 @@ export default function RuleForm({
       </div>
 
       {tab === "free" && (
-        <FreeTextRuleForm races={races} onAddAttrRule={onAddAttrRule} onAddTrendRule={onAddTrendRule} />
+        <FreeTextRuleForm
+          races={races}
+          onAddAttrRule={onAddAttrRule}
+          onAddTrendRule={onAddTrendRule}
+          locked={locked}
+          onLockedAttempt={() => setLockedNotice(true)}
+        />
       )}
 
       {tab === "attr" && (
@@ -216,6 +232,15 @@ export default function RuleForm({
             <Plus size={16} /> ルールを追加
           </button>
         </div>
+      )}
+
+      {locked && lockedNotice && (
+        <p
+          className="text-sm font-bold text-center mb-4 py-2.5 px-3"
+          style={{ color: RED, background: PAPER_CARD, border: `1px solid ${RED}` }}
+        >
+          保存するには会員登録(ログイン)が必要です。この下から登録・ログインしてください
+        </p>
       )}
 
       <div className="mt-6">

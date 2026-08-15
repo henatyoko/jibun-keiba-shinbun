@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Flag, Sparkles } from "lucide-react";
 import Masthead from "./components/Masthead";
 import RaceList from "./components/RaceList";
@@ -27,6 +27,12 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [sessionChecked, setSessionChecked] = useState(!isSupabaseConfigured);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const authScreenRef = useRef(null);
+
+  // 未ログインで知見を保存しようとした時、ログイン欄までスクロールして知らせる
+  const requireLogin = () => {
+    authScreenRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   // ログイン状態を監視する
   useEffect(() => {
@@ -140,13 +146,18 @@ export default function App() {
               races={races}
               attrRules={session ? attrRules : []}
               trendRules={session ? trendRules : []}
-              onAddAttrRule={session ? handleAddAttrRule : () => {}}
-              onDeleteAttrRule={session ? handleDeleteAttrRule : () => {}}
-              onAddTrendRule={session ? handleAddTrendRule : () => {}}
-              onDeleteTrendRule={session ? handleDeleteTrendRule : () => {}}
+              locked={!session}
+              onAddAttrRule={session ? handleAddAttrRule : requireLogin}
+              onDeleteAttrRule={session ? handleDeleteAttrRule : requireLogin}
+              onAddTrendRule={session ? handleAddTrendRule : requireLogin}
+              onDeleteTrendRule={session ? handleDeleteTrendRule : requireLogin}
               saveState={session ? saveState : "idle"}
             />
-            {!session && <AuthScreen />}
+            {!session && (
+              <div ref={authScreenRef}>
+                <AuthScreen />
+              </div>
+            )}
           </>
         )}
       </div>
