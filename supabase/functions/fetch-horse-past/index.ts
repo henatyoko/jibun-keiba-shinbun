@@ -75,10 +75,12 @@ Deno.serve(async (req) => {
 });
 
 async function fetchHorsePastRaces(horseId: string) {
-  const res = await fetch(`https://db.netkeiba.com/horse/${horseId}/`, { headers: HEADERS });
+  const url = `https://db.netkeiba.com/horse/ajax_horse_results.html?input=UTF-8&output=json&id=${horseId}`;
+  const res = await fetch(url, { headers: HEADERS });
   if (!res.ok) return [];
-  const html = await res.text();
-  const $ = cheerio.load(html);
+  const json = await res.json();
+  if (json?.status !== "OK" || !json.data) return [];
+  const $ = cheerio.load(json.data);
 
   const table = $(".db_h_race_results").first();
   if (table.length === 0) return [];
