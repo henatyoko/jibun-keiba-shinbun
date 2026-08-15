@@ -17,6 +17,11 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [paddockByNum, setPaddockByNum] = useState({});
   const [loadingPast, setLoadingPast] = useState(true);
 
+  // レースが切り替わった時、前のレースでのスクロール位置を引き継がず一番上に戻す
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [race.id]);
+
   // 同じ開催日・同じ競馬場のレースをレース番号順に並べ、前後移動に使う。
   const { prevRace, nextRace } = useMemo(() => {
     if (!races) return { prevRace: null, nextRace: null };
