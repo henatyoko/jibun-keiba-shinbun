@@ -1,3 +1,18 @@
+import { courseBiasFor } from "../data/courseBias";
+
+// 開催競馬場・馬場・距離から、一般的に知られる枠順傾向による小さな補正を返す。
+// distanceStr例: "芝2400m" / "ダ1200m"
+export function courseBiasAdjustment(waku, place, distanceStr) {
+  const match = distanceStr?.match(/^(芝|ダ)(\d+)m/);
+  if (!match || !waku) return null;
+  const [, surface, meters] = match;
+  const bias = courseBiasFor(place, surface, Number(meters));
+  if (!bias) return null;
+  const score = bias.wakuBonus(waku);
+  if (!score) return null;
+  return { label: bias.label, score };
+}
+
 // 属性ルール・傾向ルールを1頭の馬に適用し、合計スコアを算出する。
 export function scoreHorse(horse, attrRules, trendRules, raceName) {
   const applied = [];

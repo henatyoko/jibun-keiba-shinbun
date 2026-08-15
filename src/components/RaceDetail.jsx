@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft } from "lucide-react";
 import GradeChip from "./GradeChip";
 import WakuBadge from "./WakuBadge";
-import { scoreHorse, baseScoreFromPastRaces } from "../lib/scoring";
+import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment } from "../lib/scoring";
 import { fetchHorsePastRaces } from "../lib/horsePastRepository";
 import { PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
 
 export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
   const [pastRacesByHorse, setPastRacesByHorse] = useState({});
+  const [notesByHorse, setNotesByHorse] = useState({});
+  const [siresByHorse, setSiresByHorse] = useState({});
   const [loadingPast, setLoadingPast] = useState(true);
 
   useEffect(() => {
     setLoadingPast(true);
-    const horseIds = race.horses.map((h) => h.horseId);
-    fetchHorsePastRaces(horseIds).then((data) => {
-      setPastRacesByHorse(data);
+    fetchHorsePastRaces(race.horses).then(({ past, notes, sires }) => {
+      setPastRacesByHorse(past);
+      setNotesByHorse(notes);
+      setSiresByHorse(sires);
       setLoadingPast(false);
     });
   }, [race]);
@@ -23,15 +27,39 @@ export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
       .map((h) => {
         const past = pastRacesByHorse[h.horseId];
         const base = past ? baseScoreFromPastRaces(past) : h.base;
-        return { ...h, base, past, ...scoreHorse({ ...h, base }, attrRules, trendRules, race.name) };
+        const note = notesByHorse[h.horseId];
+        const sire = siresByHorse[h.horseId] || h.sire;
+        const { total, bonus, applied } = scoreHorse({ ...h, base, sire }, attrRules, trendRules, race.name);
+        const aiAdjustment = note?.scoreAdjustment ?? 0;
+        const bias = courseBiasAdjustment(h.waku, race.place, race.distance);
+        const extra = [
+          ...(aiAdjustment !== 0 ? [{ label: "AI評価", score: aiAdjustment }] : []),
+          ...(bias ? [{ label: bias.label, score: bias.score }] : []),
+        ];
+        const extraTotal = aiAdjustment + (bias?.score ?? 0);
+        return {
+          ...h,
+          base,
+          past,
+          note,
+          sire,
+          total: total + extraTotal,
+          bonus: bonus + extraTotal,
+          applied: [...applied, ...extra],
+        };
       })
       .sort((a, b) => b.total - a.total);
-  }, [race, attrRules, trendRules, pastRacesByHorse]);
+  }, [race, attrRules, trendRules, pastRacesByHorse, notesByHorse, siresByHorse]);
 
   return (
     <div className="px-4 pt-4 pb-24">
-      <button onClick={onBack} className="text-xs mb-3 font-semibold" style={{ color: RED }}>
-        ← レース一覧に戻る
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 mb-3 px-3 py-2 text-sm font-bold active:opacity-70 transition-opacity"
+        style={{ color: PAPER_CARD, background: RED, border: `1px solid ${RED}` }}
+      >
+        <ChevronLeft size={18} />
+        レース一覧に戻る
       </button>
       <div className="flex items-center gap-2 mb-1">
         <GradeChip grade={race.grade} />
@@ -92,6 +120,11 @@ export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
                       ))}
                     </span>
                   </div>
+                )}
+                {h.note?.comment && (
+                  <p className="text-[10px] mt-0.5 italic" style={{ color: MUTED }}>
+                    「{h.note.comment}」
+                  </p>
                 )}
               </div>
               <div className="text-right">
