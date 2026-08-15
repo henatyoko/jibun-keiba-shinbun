@@ -82,8 +82,9 @@ async function fetchRace(raceId) {
   const gradeMatch = head.match(/\(([^)]+)\)\s*$/);
   const grade = gradeMatch ? gradeMatch[1] : null;
   const name = $('[class*="RaceName"]').first().text().trim() || head.replace(/\([^)]*\)\s*$/, "").trim();
-  const placeMatch = title.match(/\d{4}年\d{1,2}月\d{1,2}日\s+(\S+?)\d+R/);
+  const placeMatch = title.match(/\d{4}年\d{1,2}月\d{1,2}日\s+(\S+?)(\d+)R/);
   const place = placeMatch ? placeMatch[1] : null;
+  const raceNumber = placeMatch ? Number(placeMatch[2]) : null;
   const dateMatch = title.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
   const raceDate = dateMatch ? `${dateMatch[1]}-${String(dateMatch[2]).padStart(2, "0")}-${String(dateMatch[3]).padStart(2, "0")}` : null;
 
@@ -117,6 +118,7 @@ async function fetchRace(raceId) {
     name,
     grade,
     place,
+    race_number: raceNumber,
     distance,
     race_date: raceDate,
     post_time: postTime,

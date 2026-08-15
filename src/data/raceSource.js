@@ -11,7 +11,7 @@ export async function fetchRaces() {
 
   const { data: races, error } = await supabase
     .from("races")
-    .select("id, name, grade, place, distance, race_date, post_time, race_entries(num, waku, horse_name, sire, jockey, age)")
+    .select("id, name, grade, place, race_number, distance, race_date, post_time, race_entries(num, waku, horse_name, sire, jockey, age)")
     .order("race_date", { ascending: true })
     .order("post_time", { ascending: true });
 
@@ -22,6 +22,7 @@ export async function fetchRaces() {
     grade: race.grade || "一般",
     name: race.name,
     place: race.place,
+    raceNumber: race.race_number,
     distance: race.distance,
     date: formatRaceDate(race.race_date, race.post_time),
     horses: race.race_entries.map((h) => ({

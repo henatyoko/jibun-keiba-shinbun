@@ -63,7 +63,8 @@ export default function RaceList({ races, onSelect }) {
               {race.name}
             </h2>
             <p className="text-xs" style={{ color: MUTED }}>
-              {race.place}・{race.distance}
+              {race.place}
+              {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
             </p>
           </button>
         ))}

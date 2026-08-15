@@ -26,7 +26,8 @@ export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
         {race.name}
       </h1>
       <p className="text-xs mb-4" style={{ color: MUTED }}>
-        {race.place}・{race.distance}
+        {race.place}
+        {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
       </p>
 
       <div style={{ border: `1.5px solid ${INK}` }}>
@@ -44,7 +45,7 @@ export default function RaceDetail({ race, attrRules, trendRules, onBack }) {
                 className="text-xl font-black w-6 text-center shrink-0"
                 style={{ color: idx === 0 ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
               >
-                {MARKS[idx] || "△"}
+                {MARKS[idx] || ""}
               </div>
               <WakuBadge num={h.num} />
               <div className="flex-1">

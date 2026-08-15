@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Plus, X, Sparkles, Flag, BookMarked } from "lucide-react";
+import { Plus, X, Sparkles, Flag, BookMarked, Wand2 } from "lucide-react";
 import { ATTR_TYPES, TREND_TYPES } from "../data/ruleOptions";
 import { PAPER, PAPER_CARD, INK, RED, MUTED, LINE } from "../lib/colors";
+import FreeTextRuleForm from "./FreeTextRuleForm";
 
 export default function RuleForm({
   races,
@@ -65,6 +66,7 @@ export default function RuleForm({
         {[
           { key: "attr", label: "属性ルール", icon: Sparkles },
           { key: "trend", label: "傾向ルール", icon: Flag },
+          { key: "free", label: "自由入力", icon: Wand2 },
         ].map((t) => (
           <button
             key={t.key}
@@ -83,7 +85,11 @@ export default function RuleForm({
         ))}
       </div>
 
-      {tab === "attr" ? (
+      {tab === "free" && (
+        <FreeTextRuleForm races={races} onAddAttrRule={onAddAttrRule} onAddTrendRule={onAddTrendRule} />
+      )}
+
+      {tab === "attr" && (
         <div className="p-4 mb-4" style={{ background: PAPER_CARD, border: `1px solid ${INK}` }}>
           <div className="text-xs font-semibold mb-3" style={{ color: MUTED }}>
             馬・血統・騎手などに紐づく評価
@@ -136,7 +142,9 @@ export default function RuleForm({
             <Plus size={16} /> ルールを追加
           </button>
         </div>
-      ) : (
+      )}
+
+      {tab === "trend" && (
         <div className="p-4 mb-4" style={{ background: PAPER_CARD, border: `1px solid ${INK}` }}>
           <div className="text-xs font-semibold mb-3" style={{ color: MUTED }}>
             特定レースの傾向・法則
