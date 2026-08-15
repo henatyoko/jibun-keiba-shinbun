@@ -67,7 +67,7 @@ export default function RuleForm({
         <h2 className="text-xl font-bold" style={{ color: INK, fontFamily: "'Shippori Mincho', serif" }}>
           知見の登録
         </h2>
-        <span className="text-[10px]" style={{ color: saveState === "error" ? RED : MUTED }}>
+        <span className="text-[0.625rem]" style={{ color: saveState === "error" ? RED : MUTED }}>
           {saveState === "saving" && "保存中…"}
           {saveState === "saved" && "保存済み"}
           {saveState === "error" && "保存に失敗しました"}

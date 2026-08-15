@@ -12,6 +12,13 @@
   --font-body: "Zen Old Mincho", "Shippori Mincho", serif;
 }
 
+/* 老眼対応。remを使っている文字サイズ(Tailwindのtext-xs等、および
+   text-[Nrem]化した箇所)はすべてこのルート基準で20%大きくなる。
+   px指定のinput類(iOSズーム対策)はこの影響を受けない。 */
+html {
+  font-size: 120%;
+}
+
 body {
   margin: 0;
   background: var(--paper);

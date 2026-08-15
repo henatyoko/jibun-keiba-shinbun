@@ -11,16 +11,16 @@ export default function Masthead({ raceCount, userEmail, onLogout }) {
           >
             じぶん競馬新聞
           </h1>
-          <span className="text-[10px]" style={{ color: PAPER, opacity: 0.7, fontFamily: "'Shippori Mincho', serif" }}>
+          <span className="text-[0.625rem]" style={{ color: PAPER, opacity: 0.7, fontFamily: "'Shippori Mincho', serif" }}>
             号外
           </span>
         </div>
         <div className="flex items-center justify-between mt-0.5">
-          <div className="text-[10px]" style={{ color: PAPER, opacity: 0.7 }}>
+          <div className="text-[0.625rem]" style={{ color: PAPER, opacity: 0.7 }}>
             My知見反映版・第{raceCount}競走号
           </div>
           {userEmail && (
-            <div className="flex items-center gap-2 text-[10px]" style={{ color: PAPER, opacity: 0.7 }}>
+            <div className="flex items-center gap-2 text-[0.625rem]" style={{ color: PAPER, opacity: 0.7 }}>
               <span className="truncate max-w-[120px]">{userEmail}</span>
               <button onClick={onLogout} className="underline shrink-0">
                 ログアウト

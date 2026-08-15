@@ -179,7 +179,7 @@ export default function App() {
             >
               <t.icon size={18} color={tab === t.key ? "#E8B4A8" : PAPER} style={{ opacity: tab === t.key ? 1 : 0.6 }} />
               <span
-                className="text-[10px] font-semibold"
+                className="text-[0.625rem] font-semibold"
                 style={{ color: tab === t.key ? "#E8B4A8" : PAPER, opacity: tab === t.key ? 1 : 0.6, fontFamily: "'Shippori Mincho', serif" }}
               >
                 {t.label}

@@ -189,15 +189,15 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               </div>
               <WakuBadge num={h.num} />
               <div className="flex-1">
-                <div className="font-bold text-[15px]" style={{ color: INK, fontFamily: "'Shippori Mincho', serif" }}>
+                <div className="font-bold text-[0.9375rem]" style={{ color: INK, fontFamily: "'Shippori Mincho', serif" }}>
                   {h.name}
                 </div>
-                <div className="text-[10px]" style={{ color: MUTED }}>
+                <div className="text-[0.625rem]" style={{ color: MUTED }}>
                   {h.age}歳・{h.jockey}・{h.sire}
                   {h.trainer ? `・${h.trainer}厩舎` : ""}
                 </div>
                 {h.past && h.past.length > 0 && (
-                  <div className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: MUTED }}>
+                  <div className="text-[0.625rem] mt-0.5 flex items-center gap-1" style={{ color: MUTED }}>
                     <span>近{h.past.length}走:</span>
                     <span className="flex gap-1">
                       {h.past.map((r, i) => (
@@ -213,7 +213,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                   </div>
                 )}
                 {h.note?.comment && (
-                  <p className="text-[10px] mt-0.5 italic" style={{ color: MUTED }}>
+                  <p className="text-[0.625rem] mt-0.5 italic" style={{ color: MUTED }}>
                     「{h.note.comment}」
                   </p>
                 )}
@@ -225,7 +225,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                 >
                   {h.total}
                 </div>
-                <div className="text-[9px]" style={{ color: MUTED }}>
+                <div className="text-[0.5625rem]" style={{ color: MUTED }}>
                   {h.hasPastData ? `基礎${h.base}` : "基礎データなし"}
                 </div>
               </div>
@@ -235,7 +235,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               <div className="flex flex-wrap gap-1.5 pl-[62px]">
                 {!h.hasPastData && (
                   <span
-                    className="text-[10px] px-1.5 py-0.5 font-semibold"
+                    className="text-[0.625rem] px-1.5 py-0.5 font-semibold"
                     style={{ border: `1px dashed ${MUTED}`, color: MUTED }}
                   >
                     評価データなし・他の補正のみ反映
@@ -244,7 +244,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                 {h.applied.map((a, i) => (
                   <span
                     key={i}
-                    className="text-[10px] px-1.5 py-0.5 font-semibold"
+                    className="text-[0.625rem] px-1.5 py-0.5 font-semibold"
                     style={{
                       border: `1px solid ${a.score > 0 ? INK : RED}`,
                       color: a.score > 0 ? INK : RED,
@@ -258,15 +258,15 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
             )}
 
             {userId && (
-              <div className="flex items-center gap-1.5 pl-[62px] mt-1.5">
-                <span className="text-[10px]" style={{ color: MUTED }}>
+              <div className="flex items-center gap-2 pl-[62px] mt-2">
+                <span className="text-xs shrink-0" style={{ color: MUTED }}>
                   パドック
                 </span>
                 {PADDOCK_GRADES.map((g) => (
                   <button
                     key={g}
                     onClick={() => handlePaddockGrade(h.num, h.paddockGrade === g ? null : g)}
-                    className="text-[10px] px-2 py-0.5 font-bold"
+                    className="flex-1 max-w-16 py-2.5 text-sm font-bold"
                     style={{
                       background: h.paddockGrade === g ? INK : "transparent",
                       color: h.paddockGrade === g ? PAPER_CARD : INK,
