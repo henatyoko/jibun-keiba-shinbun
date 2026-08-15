@@ -75,9 +75,13 @@ async function fetchRace(raceId) {
   const $ = cheerio.load(html);
 
   const title = $("title").text();
-  const name = $('[class*="RaceName"]').first().text().trim() || title.split("|")[0].replace(/\([^)]*\)/, "").trim();
-  const gradeMatch = title.match(/\(([^)]+)\)/);
+  // タイトル例: "札幌記念(G2) 出馬表 | ..." / "3歳未勝利 出馬表 | ..."
+  // "出馬表"の直前にある括弧だけをグレードとして拾う(文末の"(JRA)"などを誤検出しないように)
+  const headMatch = title.match(/^([^|]+?)出馬表/);
+  const head = headMatch ? headMatch[1].trim() : "";
+  const gradeMatch = head.match(/\(([^)]+)\)\s*$/);
   const grade = gradeMatch ? gradeMatch[1] : null;
+  const name = $('[class*="RaceName"]').first().text().trim() || head.replace(/\([^)]*\)\s*$/, "").trim();
   const placeMatch = title.match(/\d{4}年\d{1,2}月\d{1,2}日\s+(\S+?)\d+R/);
   const place = placeMatch ? placeMatch[1] : null;
   const dateMatch = title.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
