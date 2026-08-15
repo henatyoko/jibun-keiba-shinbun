@@ -10,6 +10,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
   const [pastRacesByHorse, setPastRacesByHorse] = useState({});
   const [notesByHorse, setNotesByHorse] = useState({});
   const [siresByHorse, setSiresByHorse] = useState({});
+  const [profilesByHorse, setProfilesByHorse] = useState({});
   const [loadingPast, setLoadingPast] = useState(true);
 
   // 同じ開催日・同じ競馬場のレースをレース番号順に並べ、前後移動に使う。
@@ -27,10 +28,11 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
 
   useEffect(() => {
     setLoadingPast(true);
-    fetchHorsePastRaces(race.horses).then(({ past, notes, sires }) => {
+    fetchHorsePastRaces(race.horses).then(({ past, notes, sires, profiles }) => {
       setPastRacesByHorse(past);
       setNotesByHorse(notes);
       setSiresByHorse(sires);
+      setProfilesByHorse(profiles);
       setLoadingPast(false);
     });
   }, [race]);
@@ -42,7 +44,15 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
         const base = past ? baseScoreFromPastRaces(past) : h.base;
         const note = notesByHorse[h.horseId];
         const sire = siresByHorse[h.horseId] || h.sire;
-        const { total, bonus, applied } = scoreHorse({ ...h, base, sire }, attrRules, trendRules, race.name);
+        const profile = profilesByHorse[h.horseId];
+        const trainer = profile?.trainer;
+        const owner = profile?.owner;
+        const { total, bonus, applied } = scoreHorse(
+          { ...h, base, sire, trainer, owner },
+          attrRules,
+          trendRules,
+          race.name
+        );
         const aiAdjustment = note?.scoreAdjustment ?? 0;
         const bias = courseBiasAdjustment(h.waku, race.place, race.distance);
         const extra = [
@@ -57,6 +67,8 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
           past,
           note,
           sire,
+          trainer,
+          owner,
           hasPastData,
           total: total + extraTotal,
           bonus: bonus + extraTotal,
@@ -64,7 +76,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
         };
       })
       .sort((a, b) => b.total - a.total);
-  }, [race, attrRules, trendRules, pastRacesByHorse, notesByHorse, siresByHorse]);
+  }, [race, attrRules, trendRules, pastRacesByHorse, notesByHorse, siresByHorse, profilesByHorse]);
 
   return (
     <div className="px-4 pt-4 pb-24">
@@ -149,6 +161,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, onBack,
                 </div>
                 <div className="text-[10px]" style={{ color: MUTED }}>
                   {h.age}歳・{h.jockey}・{h.sire}
+                  {h.trainer ? `・${h.trainer}厩舎` : ""}
                 </div>
                 {h.past && h.past.length > 0 && (
                   <div className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: MUTED }}>

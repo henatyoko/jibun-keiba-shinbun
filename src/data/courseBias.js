@@ -24,6 +24,14 @@ export const COURSE_BIAS = [
   {
     place: "新潟",
     surface: "芝",
+    minDistance: 1600,
+    maxDistance: 1600,
+    label: "新潟芝1600mは内枠が不振、5枠付近が良好",
+    wakuBonus: (waku) => (waku === 5 ? 1 : waku <= 2 ? -1 : 0),
+  },
+  {
+    place: "新潟",
+    surface: "芝",
     minDistance: 1800,
     maxDistance: 2000,
     label: "新潟芝(外回り)は内枠有利",

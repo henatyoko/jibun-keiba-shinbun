@@ -58,14 +58,15 @@ Deno.serve(async (req) => {
 
   const staleBefore = new Date(Date.now() - CACHE_HOURS * 60 * 60 * 1000).toISOString();
 
-  // 過去成績→AIコメント生成のパイプラインと、血統(父馬名)取得は互いに依存しないので、
-  // 並行して走らせる(それぞれの内部でもnetkeiba/Claudeへの呼び出しを並列化している)。
+  // 過去成績→AIコメント生成のパイプライン、血統(父馬名)取得、調教師・馬主取得は
+  // 互いに依存しないので並行して走らせる(それぞれの内部でも並列化している)。
   try {
-    const [{ grouped, notes }, sires] = await Promise.all([
+    const [{ grouped, notes }, sires, profiles] = await Promise.all([
       getPastRacesAndNotes(horseIds, horseNames, staleBefore),
       getOrFetchSires(horseIds),
+      getOrFetchProfiles(horseIds),
     ]);
-    return json({ past: grouped, notes, sires }, 200);
+    return json({ past: grouped, notes, sires, profiles }, 200);
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : "取得に失敗しました" }, 500);
   }
@@ -167,6 +168,67 @@ async function fetchSire(horseId: string): Promise<string | null> {
     const sireLink = firstTd.find("a").first();
     const sire = sireLink.contents().first().text().trim();
     return sire || null;
+  } catch {
+    return null;
+  }
+}
+
+type HorseProfile = { trainer: string | null; owner: string | null };
+
+// 各馬の調教師(厩舎)・馬主を取得。不変なので一度キャッシュしたら再取得しない。
+async function getOrFetchProfiles(horseIds: string[]): Promise<Record<string, HorseProfile>> {
+  const { data: cached } = await supabase
+    .from("horse_profiles")
+    .select("horse_id, trainer, owner")
+    .in("horse_id", horseIds);
+
+  const profiles: Record<string, HorseProfile> = {};
+  const missingIds: string[] = [];
+
+  for (const id of horseIds) {
+    const row = cached?.find((c) => c.horse_id === id);
+    if (row) profiles[id] = { trainer: row.trainer, owner: row.owner };
+    else missingIds.push(id);
+  }
+
+  await Promise.all(
+    missingIds.map(async (id) => {
+      const profile = await fetchProfile(id);
+      if (!profile) return;
+      profiles[id] = profile;
+      await supabase
+        .from("horse_profiles")
+        .upsert({ horse_id: id, trainer: profile.trainer, owner: profile.owner }, { onConflict: "horse_id" });
+    })
+  );
+
+  return profiles;
+}
+
+// netkeibaの馬プロフィールページ(ログイン不要)から調教師・馬主を抜き出す。
+async function fetchProfile(horseId: string): Promise<HorseProfile | null> {
+  try {
+    const url = `https://db.netkeiba.com/horse/${horseId}/`;
+    const res = await fetch(url, { headers: HEADERS });
+    if (!res.ok) return null;
+    const buf = new Uint8Array(await res.arrayBuffer());
+    const html = iconv.decode(buf as any, "euc-jp");
+    const $ = cheerio.load(html);
+
+    let trainer: string | null = null;
+    let owner: string | null = null;
+    $(".db_prof_table")
+      .first()
+      .find("tr")
+      .each((_, row) => {
+        const label = $(row).find("th").text().trim();
+        const value = $(row).find("td").text().replace(/\s+/g, " ").trim();
+        if (label === "調教師") trainer = value.replace(/\s*\([^)]*\)\s*$/, "").trim() || null;
+        if (label === "馬主") owner = value || null;
+      });
+
+    if (!trainer && !owner) return null;
+    return { trainer, owner };
   } catch {
     return null;
   }

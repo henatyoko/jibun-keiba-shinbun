@@ -20,7 +20,9 @@ export function scoreHorse(horse, attrRules, trendRules, raceName) {
   attrRules.forEach((rule) => {
     if (
       (rule.type === "血統" && horse.sire === rule.value) ||
-      (rule.type === "騎手" && horse.jockey === rule.value)
+      (rule.type === "騎手" && horse.jockey === rule.value) ||
+      (rule.type === "厩舎" && horse.trainer === rule.value) ||
+      (rule.type === "馬主" && horse.owner === rule.value)
     ) {
       applied.push({ label: `${rule.type}:${rule.value}`, score: rule.score });
     }
