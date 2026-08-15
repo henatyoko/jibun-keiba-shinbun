@@ -39,7 +39,7 @@ export default function RaceList({ races, onSelect }) {
         あなたの知見を反映した予想スコアで表示
       </p>
 
-      {dates.length > 1 && (
+      {dates.length > 0 && (
         <div className="flex gap-2 mb-2 overflow-x-auto">
           {dates.map((d) => (
             <button
