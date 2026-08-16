@@ -120,6 +120,34 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   // 紛らわしいため印・強調表示を出さない
   const noDifferentiation = !loadingPast && scored.every((h) => !h.hasPastData && h.applied.length === 0);
 
+  // ◎○▲はスコア上位固定、△は3位との得点差が僅かな馬全員(0〜複数頭)、
+  // 穴は機械的に5位固定にせず「得点は低いが加点材料がある馬」の中で最高得点の馬だけに付ける
+  const TRIANGLE_THRESHOLD = 3;
+  const marksByNum = useMemo(() => {
+    if (noDifferentiation) return {};
+    const byRank = [...scored].sort((a, b) => a.rank - b.rank);
+    const marks = {};
+    byRank.slice(0, 3).forEach((h, i) => {
+      marks[h.num] = MARKS[i];
+    });
+    const third = byRank[2];
+    if (third) {
+      byRank.forEach((h) => {
+        if (marks[h.num]) return;
+        const diff = third.total - h.total;
+        if (diff >= 0 && diff <= TRIANGLE_THRESHOLD) {
+          marks[h.num] = MARKS[3];
+        }
+      });
+    }
+    const anaCandidates = byRank.filter((h) => !marks[h.num] && h.applied.some((a) => a.score > 0));
+    if (anaCandidates.length > 0) {
+      const best = anaCandidates.reduce((a, b) => (b.total > a.total ? b : a));
+      marks[best.num] = MARKS[4];
+    }
+    return marks;
+  }, [scored, noDifferentiation]);
+
   const displayList = useMemo(() => {
     if (sortMode === "waku") {
       return [...scored].sort((a, b) => a.num - b.num);
@@ -206,13 +234,14 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         )}
       <div style={{ border: `1.5px solid ${INK}` }}>
         {displayList.map((h, i) => {
-          const idx = h.rank;
+          const mark = marksByNum[h.num] || "";
+          const isTop = mark === MARKS[0];
           return (
           <div
             key={h.num}
             className="p-3"
             style={{
-              background: idx === 0 && !noDifferentiation ? "#F3E4C8" : PAPER_CARD,
+              background: isTop ? "#F3E4C8" : PAPER_CARD,
               borderBottom: i < displayList.length - 1 ? `1px solid ${LINE}` : "none",
               minHeight: "150px",
             }}
@@ -220,9 +249,9 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
             <div className="flex items-start gap-2.5 mb-1.5">
               <div
                 className="font-black w-6 text-center shrink-0"
-                style={{ color: idx === 0 && !noDifferentiation ? RED : INK, fontFamily: "'Shippori Mincho', serif", fontSize: "20px" }}
+                style={{ color: isTop ? RED : INK, fontFamily: "'Shippori Mincho', serif", fontSize: "20px" }}
               >
-                {noDifferentiation ? "" : MARKS[idx] || ""}
+                {mark}
               </div>
               <WakuBadge num={h.num} />
               <div className="flex-1">
@@ -258,7 +287,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               <div className="text-right">
                 <div
                   className="text-xl font-black tabular-nums"
-                  style={{ color: idx === 0 && !noDifferentiation ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
+                  style={{ color: isTop ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
                 >
                   {h.total}
                 </div>
