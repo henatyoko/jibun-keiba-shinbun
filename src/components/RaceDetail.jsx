@@ -16,10 +16,12 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [profilesByHorse, setProfilesByHorse] = useState({});
   const [paddockByNum, setPaddockByNum] = useState({});
   const [loadingPast, setLoadingPast] = useState(true);
+  const [sortMode, setSortMode] = useState("score"); // score | waku
 
-  // レースが切り替わった時、前のレースでのスクロール位置を引き継がず一番上に戻す
+  // レースが切り替わった時、前のレースでのスクロール位置や並び順を引き継がない
   useEffect(() => {
     window.scrollTo(0, 0);
+    setSortMode("score");
   }, [race.id]);
 
   // 同じ開催日・同じ競馬場のレースをレース番号順に並べ、前後移動に使う。
@@ -66,8 +68,9 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     savePaddockGrade(userId, race.id, num, grade).catch(() => {});
   };
 
+  // 印などの順位はスコア順に固定し、表示順(スコア順/枠順)とは切り離す
   const scored = useMemo(() => {
-    return race.horses
+    const base = race.horses
       .map((h) => {
         const past = pastRacesByHorse[h.horseId];
         const base = past ? baseScoreFromPastRaces(past) : h.base;
@@ -107,13 +110,22 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           bonus: bonus + extraTotal,
           applied: [...applied, ...extra],
         };
-      })
-      .sort((a, b) => b.total - a.total);
+      });
+    const byScore = [...base].sort((a, b) => b.total - a.total);
+    const rankByNum = new Map(byScore.map((h, idx) => [h.num, idx]));
+    return base.map((h) => ({ ...h, rank: rankByNum.get(h.num) }));
   }, [race, attrRules, trendRules, pastRacesByHorse, notesByHorse, siresByHorse, profilesByHorse, paddockByNum]);
 
   // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
   // 紛らわしいため印・強調表示を出さない
   const noDifferentiation = !loadingPast && scored.every((h) => !h.hasPastData && h.applied.length === 0);
+
+  const displayList = useMemo(() => {
+    if (sortMode === "waku") {
+      return [...scored].sort((a, b) => a.num - b.num);
+    }
+    return [...scored].sort((a, b) => a.rank - b.rank);
+  }, [scored, sortMode]);
 
   return (
     <div className="px-4 pt-4 pb-24">
@@ -159,6 +171,25 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         {race.place}
         {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
       </p>
+      <div className="flex gap-2 mb-3">
+        {[
+          { key: "score", label: "スコア順" },
+          { key: "waku", label: "枠順" },
+        ].map((s) => (
+          <button
+            key={s.key}
+            onClick={() => setSortMode(s.key)}
+            className="px-3 py-1.5 text-xs font-semibold"
+            style={{
+              background: sortMode === s.key ? INK : "transparent",
+              color: sortMode === s.key ? PAPER_CARD : INK,
+              border: `1px solid ${INK}`,
+            }}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
       <div className="relative">
         {loadingPast && (
           <div
@@ -174,13 +205,15 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           </div>
         )}
       <div style={{ border: `1.5px solid ${INK}` }}>
-        {scored.map((h, idx) => (
+        {displayList.map((h, i) => {
+          const idx = h.rank;
+          return (
           <div
             key={h.num}
             className="p-3"
             style={{
               background: idx === 0 && !noDifferentiation ? "#F3E4C8" : PAPER_CARD,
-              borderBottom: idx < scored.length - 1 ? `1px solid ${LINE}` : "none",
+              borderBottom: i < displayList.length - 1 ? `1px solid ${LINE}` : "none",
               minHeight: "150px",
             }}
           >
@@ -291,7 +324,8 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
       </div>
     </div>
