@@ -111,6 +111,10 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
       .sort((a, b) => b.total - a.total);
   }, [race, attrRules, trendRules, pastRacesByHorse, notesByHorse, siresByHorse, profilesByHorse, paddockByNum]);
 
+  // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
+  // 紛らわしいため印・強調表示を出さない
+  const noDifferentiation = !loadingPast && scored.every((h) => !h.hasPastData && h.applied.length === 0);
+
   return (
     <div className="px-4 pt-4 pb-24">
       <div className="flex items-center gap-2 mb-3">
@@ -175,7 +179,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
             key={h.num}
             className="p-3"
             style={{
-              background: idx === 0 ? "#F3E4C8" : PAPER_CARD,
+              background: idx === 0 && !noDifferentiation ? "#F3E4C8" : PAPER_CARD,
               borderBottom: idx < scored.length - 1 ? `1px solid ${LINE}` : "none",
               minHeight: "150px",
             }}
@@ -183,9 +187,9 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
             <div className="flex items-start gap-2.5 mb-1.5">
               <div
                 className="font-black w-6 text-center shrink-0"
-                style={{ color: idx === 0 ? RED : INK, fontFamily: "'Shippori Mincho', serif", fontSize: "20px" }}
+                style={{ color: idx === 0 && !noDifferentiation ? RED : INK, fontFamily: "'Shippori Mincho', serif", fontSize: "20px" }}
               >
-                {MARKS[idx] || ""}
+                {noDifferentiation ? "" : MARKS[idx] || ""}
               </div>
               <WakuBadge num={h.num} />
               <div className="flex-1">
@@ -221,7 +225,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               <div className="text-right">
                 <div
                   className="text-xl font-black tabular-nums"
-                  style={{ color: idx === 0 ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
+                  style={{ color: idx === 0 && !noDifferentiation ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
                 >
                   {h.total}
                 </div>
