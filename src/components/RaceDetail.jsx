@@ -199,6 +199,11 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         {race.place}
         {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
       </p>
+      {race.isPastReview && (
+        <p className="text-xs mb-3 px-2 py-1" style={{ color: MUTED, border: `1px dashed ${MUTED}`, display: "inline-block" }}>
+          振り返り表示(このレースは終了済みです)
+        </p>
+      )}
       <div className="flex gap-2 mb-3">
         {[
           { key: "score", label: "スコア順" },
@@ -294,6 +299,14 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                 <div className="text-[0.5625rem]" style={{ color: MUTED }}>
                   {h.hasPastData ? `基礎${h.base}` : "基礎データなし"}
                 </div>
+                {h.result && (
+                  <div
+                    className="text-[0.625rem] font-bold mt-0.5"
+                    style={{ color: h.result === 1 ? RED : h.result <= 3 ? INK : MUTED }}
+                  >
+                    結果:{h.result}着
+                  </div>
+                )}
               </div>
             </div>
 

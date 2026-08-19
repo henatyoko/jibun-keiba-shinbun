@@ -39,6 +39,12 @@ export default function RaceList({ races, onSelect }) {
         あなたの知見を反映した予想スコアで表示
       </p>
 
+      {races[0]?.isPastReview && (
+        <div className="mb-3 px-3 py-2 text-xs" style={{ background: PAPER_CARD, border: `1px solid ${MUTED}`, color: MUTED }}>
+          次の開催データがまだ取り込まれていないため、直近開催({formatDateLabel(races[0].rawDate)})の結果を振り返り表示しています
+        </div>
+      )}
+
       {dates.length > 0 && (
         <div className="flex gap-2 mb-2 overflow-x-auto">
           {dates.map((d) => (
