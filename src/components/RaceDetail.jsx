@@ -222,14 +222,14 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           return (
           <div
             key={h.num}
-            className="p-3"
+            className="p-2.5"
             style={{
               background: isTop ? "#F3E4C8" : PAPER_CARD,
               borderBottom: i < displayList.length - 1 ? `1px solid ${LINE}` : "none",
               minHeight: "150px",
             }}
           >
-            <div className="flex items-start gap-2.5 mb-1.5">
+            <div className="flex items-start gap-2 mb-1.5">
               <div
                 className="font-black w-6 text-center shrink-0"
                 style={{ color: isTop ? RED : INK, fontFamily: "'Shippori Mincho', serif", fontSize: "20px" }}
@@ -270,7 +270,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                   </p>
                 )}
               </div>
-              <div className="text-right shrink-0 w-16">
+              <div className="text-right shrink-0 w-12">
                 <div
                   className="text-xl font-black tabular-nums"
                   style={{ color: isTop ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
@@ -284,7 +284,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
             </div>
 
             {h.result && (
-              <div className="flex items-start gap-2.5 mb-1.5">
+              <div className="flex items-start gap-2 mb-1.5">
                 <div className="w-6 shrink-0" aria-hidden="true" />
                 <div style={{ width: 28 }} className="shrink-0" aria-hidden="true" />
                 <div
@@ -309,7 +309,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
             )}
 
             {(!h.hasPastData || h.applied.length > 0) && (
-              <div className="flex items-start gap-2.5">
+              <div className="flex items-start gap-2">
                 <div className="w-6 shrink-0" aria-hidden="true" />
                 <div style={{ width: 28 }} className="shrink-0" aria-hidden="true" />
                 <div className="flex flex-wrap gap-1.5 flex-1">
@@ -339,7 +339,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
             )}
 
             {userId && (
-              <div className="flex items-center gap-2.5 mt-1.5">
+              <div className="flex items-center gap-2 mt-1.5">
                 <div className="w-6 shrink-0" aria-hidden="true" />
                 <div style={{ width: 28 }} className="shrink-0" aria-hidden="true" />
                 <div className="flex items-center gap-1.5 flex-1">
