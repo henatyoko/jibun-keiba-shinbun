@@ -237,7 +237,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                 {mark}
               </div>
               <WakuBadge num={h.num} />
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="font-bold text-[0.9375rem]" style={{ color: INK, fontFamily: "'Shippori Mincho', serif" }}>
                   {h.name}
                 </div>
@@ -270,7 +270,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                   </p>
                 )}
               </div>
-              <div className="text-right">
+              <div className="text-right shrink-0 w-24">
                 <div
                   className="text-xl font-black tabular-nums"
                   style={{ color: isTop ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
