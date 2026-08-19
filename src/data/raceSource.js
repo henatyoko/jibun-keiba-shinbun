@@ -52,7 +52,7 @@ async function assembleRaces(raceRows, isPastReview) {
   const raceCodes = raceRows.map((r) => r.race_code);
   const { data: entryRows, error: entryError } = await supabase
     .from("umagoto_race_joho")
-    .select("race_code, umaban, wakuban, ketto_toroku_bango, bamei, kishumei_ryakusho, barei, kakutei_chakujun")
+    .select("race_code, umaban, wakuban, ketto_toroku_bango, bamei, kishumei_ryakusho, barei, kakutei_chakujun, tansho_odds, tansho_ninkijun")
     .in("race_code", raceCodes);
 
   if (entryError) return MOCK_RACES;
@@ -84,6 +84,8 @@ async function assembleRaces(raceRows, isPastReview) {
         age: Number(h.barei),
         base: 70,
         result: h.kakutei_chakujun ? Number(h.kakutei_chakujun) : null,
+        odds: h.tansho_odds ? Number(h.tansho_odds) / 10 : null,
+        ninki: h.tansho_ninkijun ? Number(h.tansho_ninkijun) : null,
       }));
 
     return {

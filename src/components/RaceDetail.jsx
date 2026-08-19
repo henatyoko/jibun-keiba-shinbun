@@ -5,6 +5,7 @@ import WakuBadge from "./WakuBadge";
 import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment, paddockAdjustment } from "../lib/scoring";
 import { fetchHorsePastRaces } from "../lib/horsePastRepository";
 import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
+import { fetchExactaPayout } from "../lib/exactaPayoutRepository";
 import { fetchPaddockGrades, setPaddockGrade as savePaddockGrade } from "../lib/paddockRepository";
 import { PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
 
@@ -17,6 +18,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [siresByHorse, setSiresByHorse] = useState({});
   const [profilesByHorse, setProfilesByHorse] = useState({});
   const [paddockByNum, setPaddockByNum] = useState({});
+  const [exactaPayout, setExactaPayout] = useState(null);
   const [loadingPast, setLoadingPast] = useState(true);
   const [sortMode, setSortMode] = useState("score"); // score | waku
 
@@ -50,6 +52,12 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     });
     const horseIds = race.horses.map((h) => h.horseId).filter(Boolean);
     fetchJvPastRaces(horseIds, race.id).then(setJvPastByHorse);
+
+    if (race.isPastReview) {
+      fetchExactaPayout(race.id).then(setExactaPayout);
+    } else {
+      setExactaPayout(null);
+    }
   }, [race]);
 
   // 自分で入力したパドック評価を読み込む(ログイン中のみ)
@@ -205,9 +213,17 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
       </p>
       {race.isPastReview && (
-        <p className="text-xs mb-3 px-2 py-1" style={{ color: MUTED, border: `1px dashed ${MUTED}`, display: "inline-block" }}>
-          振り返り表示(このレースは終了済みです)
-        </p>
+        <div className="flex flex-wrap gap-2 mb-3">
+          <p className="text-xs px-2 py-1" style={{ color: MUTED, border: `1px dashed ${MUTED}` }}>
+            振り返り表示(このレースは終了済みです)
+          </p>
+          {exactaPayout && (
+            <p className="text-xs px-2 py-1 font-semibold" style={{ color: INK, border: `1px solid ${INK}` }}>
+              馬単 {exactaPayout.first}→{exactaPayout.second} {exactaPayout.payout.toLocaleString()}円
+              {exactaPayout.ninki ? `(${exactaPayout.ninki}番人気)` : ""}
+            </p>
+          )}
+        </div>
       )}
       <div className="flex gap-2 mb-3">
         {[
@@ -310,6 +326,12 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                     style={{ color: h.result === 1 ? RED : h.result <= 3 ? INK : MUTED }}
                   >
                     結果:{h.result}着
+                    {h.odds != null && (
+                      <span className="font-normal" style={{ color: MUTED }}>
+                        {" "}
+                        {h.odds.toFixed(1)}倍{h.ninki ? `(${h.ninki}人気)` : ""}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
