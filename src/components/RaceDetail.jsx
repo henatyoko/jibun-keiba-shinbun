@@ -3,8 +3,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import GradeChip from "./GradeChip";
 import WakuBadge from "./WakuBadge";
 import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment, paddockAdjustment } from "../lib/scoring";
-import { fetchHorsePastRaces } from "../lib/horsePastRepository";
 import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
+import { fetchAiNotes } from "../lib/aiNotesRepository";
 import { fetchExactaPayout } from "../lib/exactaPayoutRepository";
 import { fetchPaddockGrades, setPaddockGrade as savePaddockGrade } from "../lib/paddockRepository";
 import { PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
@@ -12,11 +12,8 @@ import { PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
 const PADDOCK_GRADES = ["A", "B", "無印"];
 
 export default function RaceDetail({ race, races, attrRules, trendRules, userId, onBack, onNavigate }) {
-  const [pastRacesByHorse, setPastRacesByHorse] = useState({});
   const [jvPastByHorse, setJvPastByHorse] = useState({});
   const [notesByHorse, setNotesByHorse] = useState({});
-  const [siresByHorse, setSiresByHorse] = useState({});
-  const [profilesByHorse, setProfilesByHorse] = useState({});
   const [paddockByNum, setPaddockByNum] = useState({});
   const [exactaPayout, setExactaPayout] = useState(null);
   const [loadingPast, setLoadingPast] = useState(true);
@@ -43,15 +40,14 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
 
   useEffect(() => {
     setLoadingPast(true);
-    fetchHorsePastRaces(race.horses, race.rawDate).then(({ past, notes, sires, profiles }) => {
-      setPastRacesByHorse(past);
-      setNotesByHorse(notes);
-      setSiresByHorse(sires);
-      setProfilesByHorse(profiles);
-      setLoadingPast(false);
-    });
     const horseIds = race.horses.map((h) => h.horseId).filter(Boolean);
-    fetchJvPastRaces(horseIds, race.id).then(setJvPastByHorse);
+    fetchJvPastRaces(horseIds, race.id).then((jvPast) => {
+      setJvPastByHorse(jvPast);
+      fetchAiNotes(race.horses, jvPast).then((notes) => {
+        setNotesByHorse(notes);
+        setLoadingPast(false);
+      });
+    });
 
     if (race.isPastReview) {
       fetchExactaPayout(race.id).then(setExactaPayout);
@@ -84,16 +80,11 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const scored = useMemo(() => {
     const base = race.horses
       .map((h) => {
-        const past = pastRacesByHorse[h.horseId];
         const jvPast = jvPastByHorse[h.horseId];
         const base = jvPast ? baseScoreFromPastRaces(jvPast) : h.base;
         const note = notesByHorse[h.horseId];
-        const sire = siresByHorse[h.horseId] || h.sire;
-        const profile = profilesByHorse[h.horseId];
-        const trainer = profile?.trainer;
-        const owner = profile?.owner;
         const { total, bonus, applied } = scoreHorse(
-          { ...h, base, sire, trainer, owner },
+          { ...h, base },
           attrRules,
           trendRules,
           race.name
@@ -112,12 +103,9 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         return {
           ...h,
           base,
-          past,
+          past: jvPast,
           note,
-          sire,
-          trainer,
           paddockGrade,
-          owner,
           hasPastData,
           total: total + extraTotal,
           bonus: bonus + extraTotal,
@@ -127,7 +115,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     const byScore = [...base].sort((a, b) => b.total - a.total);
     const rankByNum = new Map(byScore.map((h, idx) => [h.num, idx]));
     return base.map((h) => ({ ...h, rank: rankByNum.get(h.num) }));
-  }, [race, attrRules, trendRules, pastRacesByHorse, jvPastByHorse, notesByHorse, siresByHorse, profilesByHorse, paddockByNum]);
+  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum]);
 
   // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
   // 紛らわしいため印・強調表示を出さない
@@ -254,7 +242,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               <span>🐎</span>
             </div>
             <p className="text-xs" style={{ color: MUTED }}>
-              過去成績・血統・AI評価を取得中…
+              過去成績・AI評価を取得中…
             </p>
           </div>
         )}
@@ -292,15 +280,18 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                   <div className="text-[0.625rem] mt-0.5 flex items-center gap-1" style={{ color: MUTED }}>
                     <span>近{h.past.length}走:</span>
                     <span className="flex gap-1">
-                      {h.past.map((r, i) => (
-                        <span
-                          key={i}
-                          className="font-bold"
-                          style={{ color: r.finish_position === 1 ? RED : r.finish_position && r.finish_position <= 3 ? INK : MUTED }}
-                        >
-                          {r.finish_position ?? "?"}
-                        </span>
-                      ))}
+                      {h.past.map((r, i) => {
+                        const finish = r.kakutei_chakujun ? Number(r.kakutei_chakujun) : null;
+                        return (
+                          <span
+                            key={i}
+                            className="font-bold"
+                            style={{ color: finish === 1 ? RED : finish && finish <= 3 ? INK : MUTED }}
+                          >
+                            {finish ?? "?"}
+                          </span>
+                        );
+                      })}
                     </span>
                   </div>
                 )}

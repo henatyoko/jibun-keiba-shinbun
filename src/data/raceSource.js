@@ -52,7 +52,9 @@ async function assembleRaces(raceRows, isPastReview) {
   const raceCodes = raceRows.map((r) => r.race_code);
   const { data: entryRows, error: entryError } = await supabase
     .from("umagoto_race_joho")
-    .select("race_code, umaban, wakuban, ketto_toroku_bango, bamei, kishumei_ryakusho, barei, kakutei_chakujun, tansho_odds, tansho_ninkijun")
+    .select(
+      "race_code, umaban, wakuban, ketto_toroku_bango, bamei, kishumei_ryakusho, chokyoshimei_ryakusho, banushimei_hojinkaku_nashi, barei, kakutei_chakujun, tansho_odds, tansho_ninkijun"
+    )
     .in("race_code", raceCodes);
 
   if (entryError) return MOCK_RACES;
@@ -81,6 +83,8 @@ async function assembleRaces(raceRows, isPastReview) {
         horseId: h.ketto_toroku_bango,
         sire: sireByHorseId[h.ketto_toroku_bango] || null,
         jockey: h.kishumei_ryakusho,
+        trainer: h.chokyoshimei_ryakusho || null,
+        owner: h.banushimei_hojinkaku_nashi || null,
         age: Number(h.barei),
         base: 70,
         result: h.kakutei_chakujun ? Number(h.kakutei_chakujun) : null,
