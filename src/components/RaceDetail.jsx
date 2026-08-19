@@ -43,7 +43,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
 
   useEffect(() => {
     setLoadingPast(true);
-    fetchHorsePastRaces(race.horses).then(({ past, notes, sires, profiles }) => {
+    fetchHorsePastRaces(race.horses, race.rawDate).then(({ past, notes, sires, profiles }) => {
       setPastRacesByHorse(past);
       setNotesByHorse(notes);
       setSiresByHorse(sires);

@@ -55,6 +55,9 @@ Deno.serve(async (req) => {
   }
   const horseNames: Record<string, string> =
     body?.horseNames && typeof body.horseNames === "object" ? body.horseNames : {};
+  // 今見ているレースの開催日。この日以降の成績は「過去成績」から除外する
+  // (振り返り表示で、そのレース自身の結果が答えとして混ざり込むのを防ぐため)。
+  const raceDate: string | null = typeof body?.raceDate === "string" ? body.raceDate : null;
 
   const staleBefore = new Date(Date.now() - CACHE_HOURS * 60 * 60 * 1000).toISOString();
 
@@ -62,7 +65,7 @@ Deno.serve(async (req) => {
   // 互いに依存しないので並行して走らせる(それぞれの内部でも並列化している)。
   try {
     const [{ grouped, notes }, sires, profiles] = await Promise.all([
-      getPastRacesAndNotes(horseIds, horseNames, staleBefore),
+      getPastRacesAndNotes(horseIds, horseNames, staleBefore, raceDate),
       getOrFetchSires(horseIds),
       getOrFetchProfiles(horseIds),
     ]);
@@ -75,7 +78,8 @@ Deno.serve(async (req) => {
 async function getPastRacesAndNotes(
   horseIds: string[],
   horseNames: Record<string, string>,
-  staleBefore: string
+  staleBefore: string,
+  raceDate: string | null
 ): Promise<{ grouped: Record<string, unknown[]>; notes: Record<string, { comment: string; scoreAdjustment: number }> }> {
   const { data: cachedFreshness } = await supabase
     .from("horse_past_races")
@@ -111,12 +115,20 @@ async function getPastRacesAndNotes(
 
   if (error) throw new Error(error.message);
 
-  const grouped: Record<string, unknown[]> = {};
-  for (const row of data) {
-    (grouped[row.horse_id] ??= []).push(row);
+  // まず日付フィルタ無しで全件グルーピングする(このキャッシュ自体は他のレースを見る時にも
+  // 再利用するので、ここでは絞り込まない)。
+  const allGrouped: Record<string, { race_date: string; [key: string]: unknown }[]> = {};
+  for (const row of data as { race_date: string; [key: string]: unknown }[]) {
+    (allGrouped[row.horse_id as string] ??= []).push(row);
   }
+
+  // 今見ているレース自身、およびそれ以降の成績は「過去成績」から除外する。
+  // (振り返り表示でそのレース自身の結果が答えとして混ざり込むのを防ぐ)
+  const grouped: Record<string, unknown[]> = {};
   for (const id of horseIds) {
-    grouped[id] = (grouped[id] ?? []).slice(0, 5);
+    const rows = allGrouped[id] ?? [];
+    const filtered = raceDate ? rows.filter((r) => r.race_date < raceDate) : rows;
+    grouped[id] = filtered.slice(0, 5);
   }
 
   const notes = await getOrGenerateHorseNotes(horseIds, grouped, horseNames, staleBefore);
