@@ -270,7 +270,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                   </p>
                 )}
               </div>
-              <div className="text-right shrink-0 w-24">
+              <div className="text-right shrink-0 w-16">
                 <div
                   className="text-xl font-black tabular-nums"
                   style={{ color: isTop ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
@@ -280,28 +280,33 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                 <div className="text-[0.5625rem]" style={{ color: MUTED }}>
                   {h.hasPastData ? `基礎${h.base}` : "基礎データなし"}
                 </div>
-                {h.result && (
-                  <div
-                    className="text-[0.625rem] font-bold mt-0.5"
-                    style={{ color: h.result === 1 ? RED : h.result <= 3 ? INK : MUTED }}
-                  >
-                    結果:{h.result}着
-                    {h.odds != null && (
-                      <span className="font-normal" style={{ color: MUTED }}>
-                        {" "}
-                        {h.odds.toFixed(1)}倍{h.ninki ? `(${h.ninki}人気)` : ""}
-                      </span>
-                    )}
-                    {winPayout && winPayout.num === h.num && (
-                      <span className="font-normal" style={{ color: MUTED }}>
-                        {" "}
-                        単勝{winPayout.payout.toLocaleString()}円
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
+
+            {h.result && (
+              <div className="flex items-start gap-2.5 mb-1.5">
+                <div className="w-6 shrink-0" aria-hidden="true" />
+                <div style={{ width: 28 }} className="shrink-0" aria-hidden="true" />
+                <div
+                  className="text-[0.625rem] font-bold flex-1 min-w-0"
+                  style={{ color: h.result === 1 ? RED : h.result <= 3 ? INK : MUTED }}
+                >
+                  結果:{h.result}着
+                  {h.odds != null && (
+                    <span className="font-normal" style={{ color: MUTED }}>
+                      {" "}
+                      {h.odds.toFixed(1)}倍{h.ninki ? `(${h.ninki}人気)` : ""}
+                    </span>
+                  )}
+                  {winPayout && winPayout.num === h.num && (
+                    <span className="font-normal" style={{ color: MUTED }}>
+                      {" "}
+                      単勝{winPayout.payout.toLocaleString()}円
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
 
             {(!h.hasPastData || h.applied.length > 0) && (
               <div className="flex items-start gap-2.5">
