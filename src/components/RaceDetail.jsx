@@ -5,7 +5,7 @@ import WakuBadge from "./WakuBadge";
 import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment, paddockAdjustment, computeMarks } from "../lib/scoring";
 import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
 import { fetchAiNotes } from "../lib/aiNotesRepository";
-import { fetchExactaPayout } from "../lib/exactaPayoutRepository";
+import { fetchRacePayouts } from "../lib/payoutRepository";
 import { fetchPaddockGrades, setPaddockGrade as savePaddockGrade } from "../lib/paddockRepository";
 import { PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
 
@@ -15,7 +15,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [jvPastByHorse, setJvPastByHorse] = useState({});
   const [notesByHorse, setNotesByHorse] = useState({});
   const [paddockByNum, setPaddockByNum] = useState({});
-  const [exactaPayout, setExactaPayout] = useState(null);
+  const [winPayout, setWinPayout] = useState(null);
   const [loadingPast, setLoadingPast] = useState(true);
   const [sortMode, setSortMode] = useState("score"); // score | waku
 
@@ -50,9 +50,11 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     });
 
     if (race.isPastReview) {
-      fetchExactaPayout(race.id).then(setExactaPayout);
+      fetchRacePayouts(race.id).then(({ win }) => {
+        setWinPayout(win);
+      });
     } else {
-      setExactaPayout(null);
+      setWinPayout(null);
     }
   }, [race]);
 
@@ -120,7 +122,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
   // 紛らわしいため印・強調表示を出さない。読み込み中も未確定の印を出さない。
   const computedMarks = useMemo(() => computeMarks(scored), [scored]);
-  const noDifferentiation = !loadingPast && computedMarks.noDifferentiation;
   const marksByNum = loadingPast ? {} : computedMarks.marksByNum;
 
   const displayList = useMemo(() => {
@@ -179,12 +180,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           <p className="text-xs px-2 py-1" style={{ color: MUTED, border: `1px dashed ${MUTED}` }}>
             振り返り表示(このレースは終了済みです)
           </p>
-          {exactaPayout && (
-            <p className="text-xs px-2 py-1 font-semibold" style={{ color: INK, border: `1px solid ${INK}` }}>
-              馬単 {exactaPayout.first}→{exactaPayout.second} {exactaPayout.payout.toLocaleString()}円
-              {exactaPayout.ninki ? `(${exactaPayout.ninki}番人気)` : ""}
-            </p>
-          )}
         </div>
       )}
       <div className="flex gap-2 mb-3">
@@ -295,6 +290,12 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                       <span className="font-normal" style={{ color: MUTED }}>
                         {" "}
                         {h.odds.toFixed(1)}倍{h.ninki ? `(${h.ninki}人気)` : ""}
+                      </span>
+                    )}
+                    {winPayout && winPayout.num === h.num && (
+                      <span className="font-normal" style={{ color: MUTED }}>
+                        {" "}
+                        単勝{winPayout.payout.toLocaleString()}円
                       </span>
                     )}
                   </div>
