@@ -4,6 +4,7 @@ import GradeChip from "./GradeChip";
 import WakuBadge from "./WakuBadge";
 import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment, paddockAdjustment } from "../lib/scoring";
 import { fetchHorsePastRaces } from "../lib/horsePastRepository";
+import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
 import { fetchPaddockGrades, setPaddockGrade as savePaddockGrade } from "../lib/paddockRepository";
 import { PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
 
@@ -11,6 +12,7 @@ const PADDOCK_GRADES = ["A", "B", "無印"];
 
 export default function RaceDetail({ race, races, attrRules, trendRules, userId, onBack, onNavigate }) {
   const [pastRacesByHorse, setPastRacesByHorse] = useState({});
+  const [jvPastByHorse, setJvPastByHorse] = useState({});
   const [notesByHorse, setNotesByHorse] = useState({});
   const [siresByHorse, setSiresByHorse] = useState({});
   const [profilesByHorse, setProfilesByHorse] = useState({});
@@ -46,6 +48,8 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
       setProfilesByHorse(profiles);
       setLoadingPast(false);
     });
+    const horseIds = race.horses.map((h) => h.horseId).filter(Boolean);
+    fetchJvPastRaces(horseIds, race.id).then(setJvPastByHorse);
   }, [race]);
 
   // 自分で入力したパドック評価を読み込む(ログイン中のみ)
@@ -73,7 +77,8 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     const base = race.horses
       .map((h) => {
         const past = pastRacesByHorse[h.horseId];
-        const base = past ? baseScoreFromPastRaces(past) : h.base;
+        const jvPast = jvPastByHorse[h.horseId];
+        const base = jvPast ? baseScoreFromPastRaces(jvPast) : h.base;
         const note = notesByHorse[h.horseId];
         const sire = siresByHorse[h.horseId] || h.sire;
         const profile = profilesByHorse[h.horseId];
@@ -95,7 +100,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           ...(paddock ? [{ label: paddock.label, score: paddock.score }] : []),
         ];
         const extraTotal = aiAdjustment + (bias?.score ?? 0) + (paddock?.score ?? 0);
-        const hasPastData = Boolean(past && past.length > 0);
+        const hasPastData = Boolean(jvPast && jvPast.length > 0);
         return {
           ...h,
           base,
@@ -114,7 +119,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     const byScore = [...base].sort((a, b) => b.total - a.total);
     const rankByNum = new Map(byScore.map((h, idx) => [h.num, idx]));
     return base.map((h) => ({ ...h, rank: rankByNum.get(h.num) }));
-  }, [race, attrRules, trendRules, pastRacesByHorse, notesByHorse, siresByHorse, profilesByHorse, paddockByNum]);
+  }, [race, attrRules, trendRules, pastRacesByHorse, jvPastByHorse, notesByHorse, siresByHorse, profilesByHorse, paddockByNum]);
 
   // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
   // 紛らわしいため印・強調表示を出さない
