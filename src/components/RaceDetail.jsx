@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import GradeChip from "./GradeChip";
 import WakuBadge from "./WakuBadge";
-import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment, paddockAdjustment } from "../lib/scoring";
+import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment, paddockAdjustment, computeMarks } from "../lib/scoring";
 import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
 import { fetchAiNotes } from "../lib/aiNotesRepository";
 import { fetchExactaPayout } from "../lib/exactaPayoutRepository";
@@ -118,36 +118,10 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum]);
 
   // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
-  // 紛らわしいため印・強調表示を出さない
-  const noDifferentiation = !loadingPast && scored.every((h) => !h.hasPastData && h.applied.length === 0);
-
-  // ◎○▲はスコア上位固定、△は3位との得点差が僅かな馬全員(0〜複数頭)、
-  // 穴は機械的に5位固定にせず「得点は低いが加点材料がある馬」の中で最高得点の馬だけに付ける
-  const TRIANGLE_THRESHOLD = 3;
-  const marksByNum = useMemo(() => {
-    if (noDifferentiation) return {};
-    const byRank = [...scored].sort((a, b) => a.rank - b.rank);
-    const marks = {};
-    byRank.slice(0, 3).forEach((h, i) => {
-      marks[h.num] = MARKS[i];
-    });
-    const third = byRank[2];
-    if (third) {
-      byRank.forEach((h) => {
-        if (marks[h.num]) return;
-        const diff = third.total - h.total;
-        if (diff >= 0 && diff <= TRIANGLE_THRESHOLD) {
-          marks[h.num] = MARKS[3];
-        }
-      });
-    }
-    const anaCandidates = byRank.filter((h) => !marks[h.num] && h.applied.some((a) => a.score > 0));
-    if (anaCandidates.length > 0) {
-      const best = anaCandidates.reduce((a, b) => (b.total > a.total ? b : a));
-      marks[best.num] = MARKS[4];
-    }
-    return marks;
-  }, [scored, noDifferentiation]);
+  // 紛らわしいため印・強調表示を出さない。読み込み中も未確定の印を出さない。
+  const computedMarks = useMemo(() => computeMarks(scored), [scored]);
+  const noDifferentiation = !loadingPast && computedMarks.noDifferentiation;
+  const marksByNum = loadingPast ? {} : computedMarks.marksByNum;
 
   const displayList = useMemo(() => {
     if (sortMode === "waku") {

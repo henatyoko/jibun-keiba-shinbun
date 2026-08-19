@@ -152,7 +152,7 @@ export default function App() {
               </p>
             </div>
           ) : (
-            <RaceList races={races} onSelect={setSelectedRace} />
+            <RaceList races={races} attrRules={attrRules} trendRules={trendRules} onSelect={setSelectedRace} />
           ))}
         {tab === "rules" && (
           <>

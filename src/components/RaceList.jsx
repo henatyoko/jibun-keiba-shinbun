@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import GradeChip from "./GradeChip";
-import { PAPER_CARD, INK, MUTED } from "../lib/colors";
+import { computeMarkAccuracy } from "../lib/markAccuracyRepository";
+import { PAPER_CARD, INK, RED, MUTED } from "../lib/colors";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -10,9 +11,25 @@ function formatDateLabel(rawDate) {
   return `${d.getMonth() + 1}/${d.getDate()}(${WEEKDAYS[d.getDay()]})`;
 }
 
-export default function RaceList({ races, onSelect }) {
+export default function RaceList({ races, attrRules, trendRules, onSelect }) {
   const dates = [...new Set(races.map((r) => r.rawDate).filter(Boolean))].sort();
   const [date, setDate] = useState(dates[0] ?? null);
+  const [markAccuracy, setMarkAccuracy] = useState(null);
+
+  // 振り返り表示の時だけ、印(◎○▲)ごとの3位以内的中率を集計する
+  useEffect(() => {
+    if (!races[0]?.isPastReview) {
+      setMarkAccuracy(null);
+      return;
+    }
+    let cancelled = false;
+    computeMarkAccuracy(races, attrRules ?? [], trendRules ?? []).then((result) => {
+      if (!cancelled) setMarkAccuracy(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [races, attrRules, trendRules]);
 
   const racesOnDate = date ? races.filter((r) => r.rawDate === date) : races;
   const places = [...new Set(racesOnDate.map((r) => r.place))];
@@ -42,6 +59,26 @@ export default function RaceList({ races, onSelect }) {
       {races[0]?.isPastReview && (
         <div className="mb-3 px-3 py-2 text-xs" style={{ background: PAPER_CARD, border: `1px solid ${MUTED}`, color: MUTED }}>
           次の開催データがまだ取り込まれていないため、直近開催({formatDateLabel(races[0].rawDate)})の結果を振り返り表示しています
+        </div>
+      )}
+
+      {markAccuracy && (
+        <div className="mb-3 flex gap-2 flex-wrap">
+          {["◎", "○", "▲"].map((mark) => {
+            const stat = markAccuracy[mark];
+            if (!stat || stat.total === 0) return null;
+            const rate = Math.round((stat.hit / stat.total) * 100);
+            return (
+              <div
+                key={mark}
+                className="px-3 py-1.5 text-xs font-semibold"
+                style={{ border: `1px solid ${INK}`, color: INK }}
+              >
+                <span style={{ color: RED, fontFamily: "'Shippori Mincho', serif" }}>{mark}</span> 3位以内 {stat.hit}/
+                {stat.total}({rate}%)
+              </div>
+            );
+          })}
         </div>
       )}
 

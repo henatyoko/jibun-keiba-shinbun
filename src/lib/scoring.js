@@ -1,4 +1,5 @@
 import { courseBiasFor } from "../data/courseBias";
+import { MARKS } from "./colors";
 
 // 開催競馬場・馬場・距離から、一般的に知られる枠順傾向による小さな補正を返す。
 // distanceStr例: "芝2400m" / "ダ1200m"
@@ -52,8 +53,9 @@ export function scoreHorse(horse, attrRules, trendRules, raceName) {
 }
 
 // 直近成績(JV-Data由来。新しい順で最大5走)から基礎スコアを算出する。
-// 着順に加えて、(1)直近ほど重みを付ける、(2)人気より着順が良ければ加点/悪ければ減点、
-// (3)上がり3Fが直近ほど速くなっていれば上向きとして加点、の3軸で調整する。
+// 着順に加えて、(1)直近ほど重みを付ける、(2)上がり3Fが直近ほど速くなっていれば
+// 上向きとして加点、の2軸で調整する。市場の人気・オッズは意図的に見ない
+// (このアプリの狙いは市場に追従することではなく独自の評価をすることのため)。
 // データが無ければ既定値(70)のまま。
 export function baseScoreFromPastRaces(pastRaces) {
   if (!pastRaces || pastRaces.length === 0) return 70;
@@ -66,14 +68,7 @@ export function baseScoreFromPastRaces(pastRaces) {
     const finish = Number(r.kakutei_chakujun);
     if (!Number.isFinite(finish) || finish <= 0) return;
 
-    let point = finish === 1 ? 8 : finish <= 3 ? 4 : finish <= 5 ? 1 : -2;
-
-    const ninki = Number(r.tansho_ninkijun);
-    if (Number.isFinite(ninki) && ninki > 0) {
-      // 人気より着順が良い(gap>0)ほど加点、人気に届かないほど減点。±3点まで。
-      const gap = ninki - finish;
-      point += Math.max(-3, Math.min(3, gap * 0.5));
-    }
+    const point = finish === 1 ? 8 : finish <= 3 ? 4 : finish <= 5 ? 1 : -2;
 
     const weight = RECENCY_WEIGHTS[i] ?? 1;
     weightedSum += point * weight;
@@ -96,4 +91,39 @@ export function baseScoreFromPastRaces(pastRaces) {
   }
 
   return Math.round(70 + avg * 3);
+}
+
+// スコア済みの馬一覧(num, rank, total, hasPastData, appliedを持つ)から印を判定する。
+// ◎○▲はスコア上位固定、△は3位との得点差が僅かな馬全員(0〜複数頭)、
+// 穴は機械的に5位固定にせず「得点は低いが加点材料がある馬」の中で最高得点の馬だけに付ける。
+// 過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって紛らわしいため
+// 印を一切付けない(noDifferentiation)。
+const TRIANGLE_THRESHOLD = 3;
+
+export function computeMarks(scored) {
+  const noDifferentiation = scored.every((h) => !h.hasPastData && h.applied.length === 0);
+  if (noDifferentiation) return { marksByNum: {}, noDifferentiation };
+
+  const byRank = [...scored].sort((a, b) => a.rank - b.rank);
+  const marks = {};
+  byRank.slice(0, 3).forEach((h, i) => {
+    marks[h.num] = MARKS[i];
+  });
+  const third = byRank[2];
+  if (third) {
+    byRank.forEach((h) => {
+      if (marks[h.num]) return;
+      const diff = third.total - h.total;
+      if (diff >= 0 && diff <= TRIANGLE_THRESHOLD) {
+        marks[h.num] = MARKS[3];
+      }
+    });
+  }
+  const anaCandidates = byRank.filter((h) => !marks[h.num] && h.applied.some((a) => a.score > 0));
+  if (anaCandidates.length > 0) {
+    const best = anaCandidates.reduce((a, b) => (b.total > a.total ? b : a));
+    marks[best.num] = MARKS[4];
+  }
+
+  return { marksByNum: marks, noDifferentiation: false };
 }
