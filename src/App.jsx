@@ -20,6 +20,7 @@ import { PAPER, INK } from "./lib/colors";
 export default function App() {
   const [tab, setTab] = useState("race");
   const [races, setRaces] = useState([]);
+  const [racesLoading, setRacesLoading] = useState(true);
   const [selectedRace, setSelectedRace] = useState(null);
   const [attrRules, setAttrRules] = useState([]);
   const [trendRules, setTrendRules] = useState([]);
@@ -50,7 +51,10 @@ export default function App() {
 
   // レース一覧を取得する
   useEffect(() => {
-    fetchRaces().then(setRaces);
+    fetchRaces().then((r) => {
+      setRaces(r);
+      setRacesLoading(false);
+    });
   }, []);
 
   // ログイン中ユーザーの知見ルールを読み込む
@@ -138,6 +142,15 @@ export default function App() {
               onBack={() => setSelectedRace(null)}
               onNavigate={setSelectedRace}
             />
+          ) : racesLoading ? (
+            <div className="fixed inset-0 z-[5] flex flex-col items-center justify-center gap-2" style={{ background: "rgba(241, 233, 216, 0.9)" }}>
+              <div className="horse-run-track">
+                <span>🐎</span>
+              </div>
+              <p className="text-xs" style={{ color: INK }}>
+                レース情報を取得中…
+              </p>
+            </div>
           ) : (
             <RaceList races={races} onSelect={setSelectedRace} />
           ))}
