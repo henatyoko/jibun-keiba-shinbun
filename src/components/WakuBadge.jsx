@@ -15,7 +15,7 @@ export default function WakuBadge({ num }) {
         fontSize: 14,
       }}
     >
-      {num}
+      {num || "-"}
     </div>
   );
 }

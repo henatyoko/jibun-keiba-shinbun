@@ -114,9 +114,10 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           applied: [...applied, ...extra],
         };
       });
+    // 枠順抽選前の馬はumaban(num)が全馬0になるため、必ず一意なhorseIdで順位を引く
     const byScore = [...base].sort((a, b) => b.total - a.total);
-    const rankByNum = new Map(byScore.map((h, idx) => [h.num, idx]));
-    return base.map((h) => ({ ...h, rank: rankByNum.get(h.num) }));
+    const rankByHorseId = new Map(byScore.map((h, idx) => [h.horseId, idx]));
+    return base.map((h) => ({ ...h, rank: rankByHorseId.get(h.horseId) }));
   }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum]);
 
   // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
