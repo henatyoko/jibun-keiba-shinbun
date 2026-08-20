@@ -87,9 +87,9 @@ async function assembleRaces(raceRows, isPastReview) {
         owner: h.banushimei_hojinkaku_nashi || null,
         age: Number(h.barei),
         base: 70,
-        result: h.kakutei_chakujun ? Number(h.kakutei_chakujun) : null,
-        odds: h.tansho_odds ? Number(h.tansho_odds) / 10 : null,
-        ninki: h.tansho_ninkijun ? Number(h.tansho_ninkijun) : null,
+        result: positiveOrNull(h.kakutei_chakujun),
+        odds: positiveOrNull(h.tansho_odds, 10),
+        ninki: positiveOrNull(h.tansho_ninkijun),
       }));
 
     return {
@@ -105,6 +105,13 @@ async function assembleRaces(raceRows, isPastReview) {
       horses,
     };
   });
+}
+
+// JV-Dataは未確定の値を"00"/"0000"のような0埋め文字列で表す(結果・オッズ・人気など)。
+// 素直に文字列の真偽値で判定すると"00"がtruthyになり0が紛れ込むため、必ず正の数かで判定する。
+function positiveOrNull(value, divisor = 1) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n / divisor : null;
 }
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
