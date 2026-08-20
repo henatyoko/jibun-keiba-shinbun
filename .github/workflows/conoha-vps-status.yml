@@ -1,0 +1,38 @@
+name: ConoHa VPS Status (test)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate and list servers
+        env:
+          CONOHA_TENANT_ID: ${{ secrets.CONOHA_TENANT_ID }}
+          CONOHA_API_USER_ID: ${{ secrets.CONOHA_API_USER_ID }}
+          CONOHA_API_PASSWORD: ${{ secrets.CONOHA_API_PASSWORD }}
+        run: |
+          set -e
+
+          echo "Authenticating..."
+          TOKEN=$(curl -sS -i -X POST "https://identity.c3j1.conoha.io/v3/auth/tokens" \
+            -H "Content-Type: application/json" \
+            -d "{\"auth\":{\"identity\":{\"methods\":[\"password\"],\"password\":{\"user\":{\"id\":\"$CONOHA_API_USER_ID\",\"password\":\"$CONOHA_API_PASSWORD\"}}},\"scope\":{\"project\":{\"id\":\"$CONOHA_TENANT_ID\"}}}}" \
+            | grep -i "^x-subject-token:" | awk '{print $2}' | tr -d '\r')
+
+          if [ -z "$TOKEN" ]; then
+            echo "::error::認証に失敗しました(トークンが取得できませんでした)"
+            exit 1
+          fi
+          echo "認証成功(トークン取得OK)"
+
+          echo "サーバー一覧:"
+          curl -sS "https://compute.c3j1.conoha.io/v2.1/servers/detail" \
+            -H "X-Auth-Token: $TOKEN" \
+            | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+for s in d.get('servers', []):
+    print(f\"id={s['id']} name={s['name']} status={s['status']}\")
+"
