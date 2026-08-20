@@ -1,0 +1,52 @@
+name: ConoHa VPS Control
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "実行する操作"
+        required: true
+        type: choice
+        options: [status, start, stop]
+
+jobs:
+  control:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate and control VPS
+        env:
+          CONOHA_TENANT_ID: ${{ secrets.CONOHA_TENANT_ID }}
+          CONOHA_API_USER_ID: ${{ secrets.CONOHA_API_USER_ID }}
+          CONOHA_API_PASSWORD: ${{ secrets.CONOHA_API_PASSWORD }}
+          ACTION: ${{ inputs.action }}
+        run: |
+          set -e
+
+          TOKEN=$(curl -sS -i -X POST "https://identity.c3j1.conoha.io/v3/auth/tokens" \
+            -H "Content-Type: application/json" \
+            -d "{\"auth\":{\"identity\":{\"methods\":[\"password\"],\"password\":{\"user\":{\"id\":\"$CONOHA_API_USER_ID\",\"password\":\"$CONOHA_API_PASSWORD\"}}},\"scope\":{\"project\":{\"id\":\"$CONOHA_TENANT_ID\"}}}}" \
+            | grep -i "^x-subject-token:" | awk '{print $2}' | tr -d '\r')
+
+          if [ -z "$TOKEN" ]; then
+            echo "::error::認証に失敗しました"
+            exit 1
+          fi
+
+          SERVERS_JSON=$(curl -sS "https://compute.c3j1.conoha.io/v2.1/servers/detail" -H "X-Auth-Token: $TOKEN")
+          SERVER_ID=$(echo "$SERVERS_JSON" | jq -r '.servers[0].id')
+          SERVER_STATUS=$(echo "$SERVERS_JSON" | jq -r '.servers[0].status')
+          echo "Server: $SERVER_ID (現在: $SERVER_STATUS)"
+
+          if [ "$ACTION" = "status" ]; then
+            exit 0
+          elif [ "$ACTION" = "start" ]; then
+            curl -sS -X POST "https://compute.c3j1.conoha.io/v2.1/servers/$SERVER_ID/action" \
+              -H "X-Auth-Token: $TOKEN" -H "Content-Type: application/json" \
+              -d '{"os-start": null}'
+            echo "起動リクエストを送信しました"
+          elif [ "$ACTION" = "stop" ]; then
+            curl -sS -X POST "https://compute.c3j1.conoha.io/v2.1/servers/$SERVER_ID/action" \
+              -H "X-Auth-Token: $TOKEN" -H "Content-Type: application/json" \
+              -d '{"os-stop": null}'
+            echo "停止リクエストを送信しました"
+          fi
