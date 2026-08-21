@@ -52,9 +52,20 @@ export function scoreHorse(horse, attrRules, trendRules, raceName) {
   return { total: horse.base + bonus, bonus, applied };
 }
 
+// その1走で稼いだ獲得本賞金(円)から着順ポイントを算出する。
+// 賞金0円(着外)は-2点、対数スケールで賞金が大きいほど加点する
+// (100万円で0点・500万円級=未勝利/新馬勝ち相当で+5点前後・4000万円級=G3勝ち相当で+11点前後・
+// 1億円級=G1勝ち相当で+14点)。レースの格と着順の良さの両方が賞金額に自然に
+// 織り込まれているため、これ単体でレース格による重み付けを兼ねる。
+function moneyPoint(honshokinRaw) {
+  const yen = Number(honshokinRaw) * 100; // JV-Dataの本賞金は100円単位の数値文字列
+  if (!Number.isFinite(yen) || yen <= 0) return -2;
+  return Math.max(-2, Math.min(16, (Math.log10(yen) - 6) * 7));
+}
+
 // 直近成績(JV-Data由来。新しい順で最大5走)から基礎スコアを算出する。
-// 着順に加えて、(1)直近ほど重みを付ける、(2)そのレースの格(未勝利〜G1)で
-// 着順の価値を調整する、(3)上がり3Fが直近ほど速くなっていれば上向きとして加点、
+// (1)獲得本賞金からその1走の価値を点数化(レースの格・着順の良さを両方反映)、
+// (2)直近ほど重みを付ける、(3)上がり3Fが直近ほど速くなっていれば上向きとして加点、
 // の3軸で調整する。市場の人気・オッズは意図的に見ない(このアプリの狙いは
 // 市場に追従することではなく独自の評価をすることのため)。
 // データが無ければ既定値(70)のまま。
@@ -69,8 +80,7 @@ export function baseScoreFromPastRaces(pastRaces) {
     const finish = Number(r.kakutei_chakujun);
     if (!Number.isFinite(finish) || finish <= 0) return;
 
-    let point = finish === 1 ? 8 : finish <= 3 ? 4 : finish <= 5 ? 1 : -2;
-    point *= r.classWeight ?? 1;
+    const point = moneyPoint(r.kakutoku_honshokin);
 
     const weight = RECENCY_WEIGHTS[i] ?? 1;
     weightedSum += point * weight;

@@ -1,6 +1,5 @@
 import { supabase } from "./supabaseClient";
 import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment, computeMarks } from "./scoring";
-import { classWeight } from "../data/jvCodeTables";
 
 // 振り返り表示中の全レースについて、印(◎○▲)ごとの「3位以内的中率」を集計する。
 // AI評価・パドックは重い/その場限りの補正のため含めず、基礎点(JV-Data)・枠番傾向・
@@ -21,7 +20,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
 
   const { data, error } = await supabase
     .from("umagoto_race_joho")
-    .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f")
+    .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f, kakutoku_honshokin")
     .in("ketto_toroku_bango", horseIds)
     .not("kakutei_chakujun", "is", null)
     .neq("kakutei_chakujun", "")
@@ -39,23 +38,6 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     const cutoff = horseRaceCode[horseId];
     jvPastByHorse[horseId] = (rowsByHorse[horseId] || []).filter((r) => r.race_code < cutoff).slice(0, 5);
   });
-
-  // 各過去走のレース格(未勝利〜G1)を引くため、対象race_codeの条件情報をまとめて取得する
-  const pastRaceCodes = [...new Set(Object.values(jvPastByHorse).flat().map((r) => r.race_code))];
-  if (pastRaceCodes.length > 0) {
-    const { data: raceRows } = await supabase
-      .from("race_shosai")
-      .select(
-        "race_code, grade_code, kyoso_joken_code_2sai, kyoso_joken_code_3sai, kyoso_joken_code_4sai, kyoso_joken_code_5sai_ijo, kyoso_joken_code_saijakunen"
-      )
-      .in("race_code", pastRaceCodes);
-    const raceByCode = Object.fromEntries((raceRows || []).map((r) => [r.race_code, r]));
-    Object.values(jvPastByHorse).forEach((list) => {
-      list.forEach((row) => {
-        row.classWeight = classWeight(raceByCode[row.race_code] || {});
-      });
-    });
-  }
 
   const tally = { "◎": { hit: 0, total: 0 }, "○": { hit: 0, total: 0 }, "▲": { hit: 0, total: 0 } };
 

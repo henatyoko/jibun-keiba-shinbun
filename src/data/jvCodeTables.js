@@ -88,23 +88,3 @@ export function distanceLabel(trackCode, kyori) {
   const prefix = n >= 51 ? "障" : n >= 23 ? "ダ" : "芝";
   return `${prefix}${kyori}m`;
 }
-
-const GRADE_WEIGHTS = { G1: 1.8, JG1: 1.8, G2: 1.6, JG2: 1.6, G3: 1.5, JG3: 1.5 };
-const JOKEN_WEIGHTS = {
-  新馬: 0.8,
-  未出走: 0.8,
-  未勝利: 0.8,
-  "1勝クラス": 1.0,
-  "2勝クラス": 1.15,
-  "3勝クラス": 1.3,
-  オープン: 1.4,
-};
-
-// そのレースの格に応じた重み(未勝利0.8倍〜G1 1.8倍)。基礎点で着順の価値を
-// レースの格で調整するために使う。判定できない場合は標準の1.0を返す。
-export function classWeight(race) {
-  const graded = GRADE_CODE_LABELS[race.grade_code];
-  if (graded && GRADE_WEIGHTS[graded]) return GRADE_WEIGHTS[graded];
-  const joken = jokenLabel(pickJokenCode(race));
-  return (joken && JOKEN_WEIGHTS[joken]) || 1.0;
-}
