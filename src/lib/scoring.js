@@ -53,9 +53,10 @@ export function scoreHorse(horse, attrRules, trendRules, raceName) {
 }
 
 // 直近成績(JV-Data由来。新しい順で最大5走)から基礎スコアを算出する。
-// 着順に加えて、(1)直近ほど重みを付ける、(2)上がり3Fが直近ほど速くなっていれば
-// 上向きとして加点、の2軸で調整する。市場の人気・オッズは意図的に見ない
-// (このアプリの狙いは市場に追従することではなく独自の評価をすることのため)。
+// 着順に加えて、(1)直近ほど重みを付ける、(2)そのレースの格(未勝利〜G1)で
+// 着順の価値を調整する、(3)上がり3Fが直近ほど速くなっていれば上向きとして加点、
+// の3軸で調整する。市場の人気・オッズは意図的に見ない(このアプリの狙いは
+// 市場に追従することではなく独自の評価をすることのため)。
 // データが無ければ既定値(70)のまま。
 export function baseScoreFromPastRaces(pastRaces) {
   if (!pastRaces || pastRaces.length === 0) return 70;
@@ -68,7 +69,8 @@ export function baseScoreFromPastRaces(pastRaces) {
     const finish = Number(r.kakutei_chakujun);
     if (!Number.isFinite(finish) || finish <= 0) return;
 
-    const point = finish === 1 ? 8 : finish <= 3 ? 4 : finish <= 5 ? 1 : -2;
+    let point = finish === 1 ? 8 : finish <= 3 ? 4 : finish <= 5 ? 1 : -2;
+    point *= r.classWeight ?? 1;
 
     const weight = RECENCY_WEIGHTS[i] ?? 1;
     weightedSum += point * weight;
