@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import GradeChip from "./GradeChip";
 import WakuBadge from "./WakuBadge";
-import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment, paddockAdjustment, computeMarks } from "../lib/scoring";
+import {
+  scoreHorse,
+  baseScoreFromPastRaces,
+  courseBiasAdjustment,
+  distanceAptitudeAdjustment,
+  paddockAdjustment,
+  computeMarks,
+} from "../lib/scoring";
 import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
 import { fetchAiNotes } from "../lib/aiNotesRepository";
 import { fetchRacePayouts } from "../lib/payoutRepository";
@@ -93,14 +100,16 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         );
         const aiAdjustment = note?.scoreAdjustment ?? 0;
         const bias = courseBiasAdjustment(h.waku, race.place, race.distance);
+        const aptitude = distanceAptitudeAdjustment(h.distanceStats, race.distance);
         const paddockGrade = paddockByNum[h.num];
         const paddock = paddockAdjustment(paddockGrade);
         const extra = [
           ...(aiAdjustment !== 0 ? [{ label: "AI評価", score: aiAdjustment }] : []),
           ...(bias ? [{ label: bias.label, score: bias.score }] : []),
+          ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
           ...(paddock ? [{ label: paddock.label, score: paddock.score }] : []),
         ];
-        const extraTotal = aiAdjustment + (bias?.score ?? 0) + (paddock?.score ?? 0);
+        const extraTotal = aiAdjustment + (bias?.score ?? 0) + (aptitude?.score ?? 0) + (paddock?.score ?? 0);
         const hasPastData = Boolean(jvPast && jvPast.length > 0);
         return {
           ...h,

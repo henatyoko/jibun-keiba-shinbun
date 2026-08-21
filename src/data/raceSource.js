@@ -62,9 +62,10 @@ async function assembleRaces(raceRows, isPastReview) {
   const horseIds = [...new Set((entryRows || []).map((e) => e.ketto_toroku_bango))];
   const { data: sireRows } = await supabase
     .from("kyosoba_master2")
-    .select("ketto_toroku_bango, ketto1_bamei")
+    .select(`ketto_toroku_bango, ketto1_bamei, ${DISTANCE_BUCKET_COLUMNS}`)
     .in("ketto_toroku_bango", horseIds);
   const sireByHorseId = Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, s.ketto1_bamei]));
+  const distanceStatsByHorseId = Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, extractDistanceStats(s)]));
 
   const entriesByRaceCode = {};
   (entryRows || []).forEach((e) => {
@@ -82,6 +83,7 @@ async function assembleRaces(raceRows, isPastReview) {
         name: h.bamei,
         horseId: h.ketto_toroku_bango,
         sire: sireByHorseId[h.ketto_toroku_bango] || null,
+        distanceStats: distanceStatsByHorseId[h.ketto_toroku_bango] || null,
         jockey: h.kishumei_ryakusho,
         trainer: h.chokyoshimei_ryakusho || null,
         owner: h.banushimei_hojinkaku_nashi || null,
@@ -112,6 +114,28 @@ async function assembleRaces(raceRows, isPastReview) {
 function positiveOrNull(value, divisor = 1) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n / divisor : null;
+}
+
+// 競走馬マスタの距離別着回数(芝/ダート × 短距離[〜1600m]/中距離[1601〜2200m]/長距離[2201m〜])。
+// 距離適性の判定に使う。
+const DISTANCE_BUCKETS = ["shiba_short", "shiba_middle", "shiba_long", "dirt_short", "dirt_middle", "dirt_long"];
+const DISTANCE_BUCKET_COLUMNS = DISTANCE_BUCKETS.map(
+  (b) => `${b}_1chaku, ${b}_2chaku, ${b}_3chaku, ${b}_4chaku, ${b}_5chaku, ${b}_chakugai`
+).join(", ");
+
+function extractDistanceStats(row) {
+  const stats = {};
+  DISTANCE_BUCKETS.forEach((b) => {
+    stats[b] = {
+      chaku1: Number(row[`${b}_1chaku`]) || 0,
+      chaku2: Number(row[`${b}_2chaku`]) || 0,
+      chaku3: Number(row[`${b}_3chaku`]) || 0,
+      chaku4: Number(row[`${b}_4chaku`]) || 0,
+      chaku5: Number(row[`${b}_5chaku`]) || 0,
+      chakugai: Number(row[`${b}_chakugai`]) || 0,
+    };
+  });
+  return stats;
 }
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];

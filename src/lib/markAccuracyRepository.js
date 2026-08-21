@@ -1,5 +1,5 @@
 import { supabase } from "./supabaseClient";
-import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment, computeMarks } from "./scoring";
+import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment, distanceAptitudeAdjustment, computeMarks } from "./scoring";
 
 // 振り返り表示中の全レースについて、印(◎○▲)ごとの「3位以内的中率」を集計する。
 // AI評価・パドックは重い/その場限りの補正のため含めず、基礎点(JV-Data)・枠番傾向・
@@ -48,11 +48,16 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       const base = hasPastData ? baseScoreFromPastRaces(jvPast) : h.base;
       const { total, applied } = scoreHorse({ ...h, base }, attrRules, trendRules, race.name);
       const bias = courseBiasAdjustment(h.waku, race.place, race.distance);
+      const aptitude = distanceAptitudeAdjustment(h.distanceStats, race.distance);
+      const extra = [
+        ...(bias ? [{ label: bias.label, score: bias.score }] : []),
+        ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
+      ];
       return {
         ...h,
         hasPastData,
-        total: total + (bias?.score ?? 0),
-        applied: bias ? [...applied, { label: bias.label, score: bias.score }] : applied,
+        total: total + (bias?.score ?? 0) + (aptitude?.score ?? 0),
+        applied: [...applied, ...extra],
       };
     });
     const byScore = [...scored].sort((a, b) => b.total - a.total);

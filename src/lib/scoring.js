@@ -14,6 +14,31 @@ export function courseBiasAdjustment(waku, place, distanceStr) {
   return { label: bias.label, score };
 }
 
+// 競走馬マスタの距離別通算成績(芝/ダート×短距離[〜1600m]/中距離[1601〜2200m]/
+// 長距離[2201m〜])から、今日のレースの距離での適性による補正を返す。
+// 3着内率が高いほど加点、出走数が少ない/着外続きなら減点。データが薄ければnull。
+export function distanceAptitudeAdjustment(distanceStats, distanceStr) {
+  const match = distanceStr?.match(/^(芝|ダ)(\d+)m/);
+  if (!match || !distanceStats) return null;
+  const [, surface, metersStr] = match;
+  const meters = Number(metersStr);
+  const surfaceKey = surface === "芝" ? "shiba" : "dirt";
+  const rangeKey = meters <= 1600 ? "short" : meters <= 2200 ? "middle" : "long";
+  const stats = distanceStats[`${surfaceKey}_${rangeKey}`];
+  if (!stats) return null;
+
+  const starts = stats.chaku1 + stats.chaku2 + stats.chaku3 + stats.chaku4 + stats.chaku5 + stats.chakugai;
+  if (starts < 2) return null; // データ不足
+
+  const top3 = stats.chaku1 + stats.chaku2 + stats.chaku3;
+  const top3Rate = top3 / starts;
+  const score = Math.max(-2, Math.min(3, Math.round((top3Rate - 0.3) * 6)));
+  if (score === 0) return null;
+
+  const rangeLabel = surface === "芝" ? "芝" : "ダ";
+  return { label: `距離適性${rangeLabel}${top3}/${starts}`, score };
+}
+
 // パドックで実際に見た印象(ユーザー自身の入力)による小さな補正。
 const PADDOCK_SCORE = { A: 3, B: 1, 無印: -2 };
 
