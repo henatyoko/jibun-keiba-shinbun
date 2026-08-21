@@ -62,10 +62,13 @@ async function assembleRaces(raceRows, isPastReview) {
   const horseIds = [...new Set((entryRows || []).map((e) => e.ketto_toroku_bango))];
   const { data: sireRows } = await supabase
     .from("kyosoba_master2")
-    .select(`ketto_toroku_bango, ketto1_bamei, ${DISTANCE_BUCKET_COLUMNS}`)
+    .select(`ketto_toroku_bango, ketto1_bamei, ketto1_hanshoku_toroku_bango, ketto5_hanshoku_toroku_bango, ${DISTANCE_BUCKET_COLUMNS}`)
     .in("ketto_toroku_bango", horseIds);
   const sireByHorseId = Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, s.ketto1_bamei]));
   const distanceStatsByHorseId = Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, extractDistanceStats(s)]));
+  const pedigreeIdsByHorseId = Object.fromEntries(
+    (sireRows || []).map((s) => [s.ketto_toroku_bango, { sireId: s.ketto1_hanshoku_toroku_bango, damsireId: s.ketto5_hanshoku_toroku_bango }])
+  );
 
   const entriesByRaceCode = {};
   (entryRows || []).forEach((e) => {
@@ -84,6 +87,8 @@ async function assembleRaces(raceRows, isPastReview) {
         horseId: h.ketto_toroku_bango,
         sire: sireByHorseId[h.ketto_toroku_bango] || null,
         distanceStats: distanceStatsByHorseId[h.ketto_toroku_bango] || null,
+        sireId: pedigreeIdsByHorseId[h.ketto_toroku_bango]?.sireId || null,
+        damsireId: pedigreeIdsByHorseId[h.ketto_toroku_bango]?.damsireId || null,
         jockey: h.kishumei_ryakusho,
         trainer: h.chokyoshimei_ryakusho || null,
         owner: h.banushimei_hojinkaku_nashi || null,

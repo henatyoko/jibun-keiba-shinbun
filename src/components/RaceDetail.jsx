@@ -7,12 +7,15 @@ import {
   baseScoreFromPastRaces,
   courseBiasAdjustment,
   distanceAptitudeAdjustment,
+  hasOwnDistanceData,
+  pedigreeAptitudeAdjustment,
   paddockAdjustment,
   computeMarks,
 } from "../lib/scoring";
 import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
 import { fetchAiNotes } from "../lib/aiNotesRepository";
 import { fetchRacePayouts } from "../lib/payoutRepository";
+import { fetchPedigreeAptitude } from "../lib/pedigreeAptitudeRepository";
 import { fetchPaddockGrades, setPaddockGrade as savePaddockGrade } from "../lib/paddockRepository";
 import { PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
 
@@ -23,6 +26,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [notesByHorse, setNotesByHorse] = useState({});
   const [paddockByNum, setPaddockByNum] = useState({});
   const [winPayout, setWinPayout] = useState(null);
+  const [pedigreeStatsById, setPedigreeStatsById] = useState({});
   const [loadingPast, setLoadingPast] = useState(true);
   const [sortMode, setSortMode] = useState("score"); // score | waku
 
@@ -63,6 +67,8 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     } else {
       setWinPayout(null);
     }
+
+    fetchPedigreeAptitude(race.horses).then(setPedigreeStatsById);
   }, [race]);
 
   // 自分で入力したパドック評価を読み込む(ログイン中のみ)
@@ -100,7 +106,10 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         );
         const aiAdjustment = note?.scoreAdjustment ?? 0;
         const bias = courseBiasAdjustment(h.waku, race.place, race.distance);
-        const aptitude = distanceAptitudeAdjustment(h.distanceStats, race.distance);
+        // 本馬自身の距離実績が薄い(新馬戦など)時は、父・母父の産駒成績を代替シグナルにする
+        const aptitude = hasOwnDistanceData(h.distanceStats, race.distance)
+          ? distanceAptitudeAdjustment(h.distanceStats, race.distance)
+          : pedigreeAptitudeAdjustment(pedigreeStatsById[h.sireId], pedigreeStatsById[h.damsireId], race.distance);
         const paddockGrade = paddockByNum[h.num];
         const paddock = paddockAdjustment(paddockGrade);
         const extra = [
@@ -127,7 +136,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     const byScore = [...base].sort((a, b) => b.total - a.total);
     const rankByHorseId = new Map(byScore.map((h, idx) => [h.horseId, idx]));
     return base.map((h) => ({ ...h, rank: rankByHorseId.get(h.horseId) }));
-  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum]);
+  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum, pedigreeStatsById]);
 
   // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
   // 紛らわしいため印・強調表示を出さない。読み込み中も未確定の印を出さない。

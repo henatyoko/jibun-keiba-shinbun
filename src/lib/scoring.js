@@ -14,20 +14,41 @@ export function courseBiasAdjustment(waku, place, distanceStr) {
   return { label: bias.label, score };
 }
 
-// 競走馬マスタの距離別通算成績(芝/ダート×短距離[〜1600m]/中距離[1601〜2200m]/
-// 長距離[2201m〜])から、今日のレースの距離での適性による補正を返す。
-// 3着内率が高いほど加点、出走数が少ない/着外続きなら減点。データが薄ければnull。
-export function distanceAptitudeAdjustment(distanceStats, distanceStr) {
+// distanceStr("芝2400m"等)から、競走馬マスタの距離別集計で使うバケットキーを求める。
+// 短距離[〜1600m]/中距離[1601〜2200m]/長距離[2201m〜]。
+function distanceBucketKey(distanceStr) {
   const match = distanceStr?.match(/^(芝|ダ)(\d+)m/);
-  if (!match || !distanceStats) return null;
+  if (!match) return null;
   const [, surface, metersStr] = match;
   const meters = Number(metersStr);
   const surfaceKey = surface === "芝" ? "shiba" : "dirt";
   const rangeKey = meters <= 1600 ? "short" : meters <= 2200 ? "middle" : "long";
-  const stats = distanceStats[`${surfaceKey}_${rangeKey}`];
+  return { key: `${surfaceKey}_${rangeKey}`, surfaceLabel: surface };
+}
+
+function sumStats(stats) {
+  if (!stats) return 0;
+  return stats.chaku1 + stats.chaku2 + stats.chaku3 + stats.chaku4 + stats.chaku5 + stats.chakugai;
+}
+
+// 本馬自身の距離別実績が(距離適性の判定に足りるだけ)あるかどうか。
+// 無ければ呼び出し側は血統(父・母父の産駒成績)を代替シグナルとして使う。
+export function hasOwnDistanceData(distanceStats, distanceStr) {
+  const bucket = distanceBucketKey(distanceStr);
+  if (!bucket || !distanceStats) return false;
+  return sumStats(distanceStats[bucket.key]) >= 2;
+}
+
+// 競走馬マスタの距離別通算成績(芝/ダート×短距離[〜1600m]/中距離[1601〜2200m]/
+// 長距離[2201m〜])から、今日のレースの距離での適性による補正を返す。
+// 3着内率が高いほど加点、出走数が少ない/着外続きなら減点。データが薄ければnull。
+export function distanceAptitudeAdjustment(distanceStats, distanceStr) {
+  const bucket = distanceBucketKey(distanceStr);
+  if (!bucket || !distanceStats) return null;
+  const stats = distanceStats[bucket.key];
   if (!stats) return null;
 
-  const starts = stats.chaku1 + stats.chaku2 + stats.chaku3 + stats.chaku4 + stats.chaku5 + stats.chakugai;
+  const starts = sumStats(stats);
   if (starts < 2) return null; // データ不足
 
   const top3 = stats.chaku1 + stats.chaku2 + stats.chaku3;
@@ -35,8 +56,31 @@ export function distanceAptitudeAdjustment(distanceStats, distanceStr) {
   const score = Math.max(-2, Math.min(3, Math.round((top3Rate - 0.3) * 6)));
   if (score === 0) return null;
 
-  const rangeLabel = surface === "芝" ? "芝" : "ダ";
-  return { label: `距離適性${rangeLabel}${top3}/${starts}`, score };
+  return { label: `距離適性${bucket.surfaceLabel}${top3}/${starts}`, score };
+}
+
+// 本馬自身に距離実績が無い(新馬戦など)時の代替シグナル。父・母父それぞれの
+// 産駒全体の距離別成績を合算し、3着内率で軽めの補正を返す(personalな
+// distanceAptitudeAdjustmentより控えめな上限)。サンプルが少なければnull。
+export function pedigreeAptitudeAdjustment(sireStats, damsireStats, distanceStr) {
+  const bucket = distanceBucketKey(distanceStr);
+  if (!bucket) return null;
+
+  const combined = { chaku1: 0, chaku2: 0, chaku3: 0, chaku4: 0, chaku5: 0, chakugai: 0 };
+  [sireStats?.[bucket.key], damsireStats?.[bucket.key]].forEach((s) => {
+    if (!s) return;
+    Object.keys(combined).forEach((k) => (combined[k] += s[k] ?? 0));
+  });
+
+  const starts = sumStats(combined);
+  if (starts < 20) return null; // 産駒サンプルが少なければ判断しない
+
+  const top3 = combined.chaku1 + combined.chaku2 + combined.chaku3;
+  const top3Rate = top3 / starts;
+  const score = Math.max(-2, Math.min(2, Math.round((top3Rate - 0.3) * 5)));
+  if (score === 0) return null;
+
+  return { label: `血統距離適性${bucket.surfaceLabel}${top3}/${starts}`, score };
 }
 
 // パドックで実際に見た印象(ユーザー自身の入力)による小さな補正。
