@@ -59,6 +59,20 @@ async function assembleRaces(raceRows, isPastReview) {
 
   if (entryError) return MOCK_RACES;
 
+  // umagoto_race_joho(SE)のtansho_odds/tansho_ninkijunはレース確定後に埋まる確定オッズのため、
+  // レース前は仕様上ずっと未確定("0000")のまま。レース前のオッズはodds1_tansho(時系列オッズ)側にしか
+  // 無いので、そちらの最新スナップショットを優先して使う。
+  const { data: oddsRows } = await supabase
+    .from("odds1_tansho")
+    .select("race_code, umaban, odds, ninki, insert_timestamp")
+    .in("race_code", raceCodes)
+    .order("insert_timestamp", { ascending: false });
+  const latestOddsByKey = {};
+  (oddsRows || []).forEach((o) => {
+    const key = `${o.race_code}_${o.umaban}`;
+    if (!(key in latestOddsByKey)) latestOddsByKey[key] = o;
+  });
+
   const horseIds = [...new Set((entryRows || []).map((e) => e.ketto_toroku_bango))];
   const { data: sireRows } = await supabase
     .from("kyosoba_master2")
@@ -80,25 +94,28 @@ async function assembleRaces(raceRows, isPastReview) {
     const horses = (entriesByRaceCode[race.race_code] || [])
       .slice()
       .sort((a, b) => Number(a.umaban) - Number(b.umaban))
-      .map((h) => ({
-        num: Number(h.umaban),
-        waku: Number(h.wakuban),
-        name: h.bamei,
-        horseId: h.ketto_toroku_bango,
-        sire: sireByHorseId[h.ketto_toroku_bango] || null,
-        distanceStats: distanceStatsByHorseId[h.ketto_toroku_bango] || null,
-        sireId: pedigreeIdsByHorseId[h.ketto_toroku_bango]?.sireId || null,
-        damsireId: pedigreeIdsByHorseId[h.ketto_toroku_bango]?.damsireId || null,
-        jockey: h.kishumei_ryakusho,
-        trainer: h.chokyoshimei_ryakusho || null,
-        owner: h.banushimei_hojinkaku_nashi || null,
-        age: Number(h.barei),
-        base: 70,
-        result: positiveOrNull(h.kakutei_chakujun),
-        odds: positiveOrNull(h.tansho_odds, 10),
-        ninki: positiveOrNull(h.tansho_ninkijun),
-        futanJuryo: positiveOrNull(h.futan_juryo, 10),
-      }));
+      .map((h) => {
+        const liveOdds = latestOddsByKey[`${h.race_code}_${h.umaban}`];
+        return {
+          num: Number(h.umaban),
+          waku: Number(h.wakuban),
+          name: h.bamei,
+          horseId: h.ketto_toroku_bango,
+          sire: sireByHorseId[h.ketto_toroku_bango] || null,
+          distanceStats: distanceStatsByHorseId[h.ketto_toroku_bango] || null,
+          sireId: pedigreeIdsByHorseId[h.ketto_toroku_bango]?.sireId || null,
+          damsireId: pedigreeIdsByHorseId[h.ketto_toroku_bango]?.damsireId || null,
+          jockey: h.kishumei_ryakusho,
+          trainer: h.chokyoshimei_ryakusho || null,
+          owner: h.banushimei_hojinkaku_nashi || null,
+          age: Number(h.barei),
+          base: 70,
+          result: positiveOrNull(h.kakutei_chakujun),
+          odds: positiveOrNull(liveOdds?.odds, 10) ?? positiveOrNull(h.tansho_odds, 10),
+          ninki: positiveOrNull(liveOdds?.ninki) ?? positiveOrNull(h.tansho_ninkijun),
+          futanJuryo: positiveOrNull(h.futan_juryo, 10),
+        };
+      });
 
     return {
       id: race.race_code,
