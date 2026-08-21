@@ -14,6 +14,18 @@ export function courseBiasAdjustment(waku, place, distanceStr) {
   return { label: bias.label, score };
 }
 
+// ハンデ戦限定で、斤量が同レースの平均より軽いほど加点、重いほど減点する補正を返す。
+// ハンデ戦は競走馬ごとにJRAが実力を見て個別に斤量を決めるため、軽ハンデ=実力を
+// 低く見られている=荒れた時の価値が高い、という読み方をする。ハンデ戦以外はnull。
+export function handicapWeightAdjustment(isHandicap, futanJuryo, fieldAvgFutanJuryo) {
+  if (!isHandicap) return null;
+  if (!Number.isFinite(futanJuryo) || !Number.isFinite(fieldAvgFutanJuryo)) return null;
+  const diffKg = fieldAvgFutanJuryo - futanJuryo; // 正なら平均より軽い
+  const score = Math.max(-3, Math.min(3, Math.round(diffKg * 1.5)));
+  if (score === 0) return null;
+  return { label: `斤量${futanJuryo.toFixed(1)}kg`, score };
+}
+
 // distanceStr("芝2400m"等)から、競走馬マスタの距離別集計で使うバケットキーを求める。
 // 短距離[〜1600m]/中距離[1601〜2200m]/長距離[2201m〜]。
 function distanceBucketKey(distanceStr) {

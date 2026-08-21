@@ -1,5 +1,12 @@
 import { supabase } from "./supabaseClient";
-import { scoreHorse, baseScoreFromPastRaces, courseBiasAdjustment, distanceAptitudeAdjustment, computeMarks } from "./scoring";
+import {
+  scoreHorse,
+  baseScoreFromPastRaces,
+  courseBiasAdjustment,
+  distanceAptitudeAdjustment,
+  handicapWeightAdjustment,
+  computeMarks,
+} from "./scoring";
 
 // 振り返り表示中の全レースについて、印(◎○▲)ごとの「3位以内的中率」を集計する。
 // AI評価・パドックは重い/その場限りの補正のため含めず、基礎点(JV-Data)・枠番傾向・
@@ -42,6 +49,9 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
   const tally = { "◎": { hit: 0, total: 0 }, "○": { hit: 0, total: 0 }, "▲": { hit: 0, total: 0 } };
 
   pastReviewRaces.forEach((race) => {
+    const futanJuryoList = race.horses.map((h) => h.futanJuryo).filter((v) => Number.isFinite(v));
+    const fieldAvgFutanJuryo =
+      futanJuryoList.length > 0 ? futanJuryoList.reduce((sum, v) => sum + v, 0) / futanJuryoList.length : null;
     const scored = race.horses.map((h) => {
       const jvPast = jvPastByHorse[h.horseId];
       const hasPastData = Boolean(jvPast && jvPast.length > 0);
@@ -49,14 +59,16 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       const { total, applied } = scoreHorse({ ...h, base }, attrRules, trendRules, race.name);
       const bias = courseBiasAdjustment(h.waku, race.place, race.distance);
       const aptitude = distanceAptitudeAdjustment(h.distanceStats, race.distance);
+      const handicap = handicapWeightAdjustment(race.isHandicap, h.futanJuryo, fieldAvgFutanJuryo);
       const extra = [
         ...(bias ? [{ label: bias.label, score: bias.score }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
+        ...(handicap ? [{ label: handicap.label, score: handicap.score }] : []),
       ];
       return {
         ...h,
         hasPastData,
-        total: total + (bias?.score ?? 0) + (aptitude?.score ?? 0),
+        total: total + (bias?.score ?? 0) + (aptitude?.score ?? 0) + (handicap?.score ?? 0),
         applied: [...applied, ...extra],
       };
     });

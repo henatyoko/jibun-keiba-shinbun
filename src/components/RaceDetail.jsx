@@ -9,6 +9,7 @@ import {
   distanceAptitudeAdjustment,
   hasOwnDistanceData,
   pedigreeAptitudeAdjustment,
+  handicapWeightAdjustment,
   paddockAdjustment,
   computeMarks,
 } from "../lib/scoring";
@@ -93,6 +94,9 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
 
   // 印などの順位はスコア順に固定し、表示順(スコア順/枠順)とは切り離す
   const scored = useMemo(() => {
+    const futanJuryoList = race.horses.map((h) => h.futanJuryo).filter((v) => Number.isFinite(v));
+    const fieldAvgFutanJuryo =
+      futanJuryoList.length > 0 ? futanJuryoList.reduce((sum, v) => sum + v, 0) / futanJuryoList.length : null;
     const base = race.horses
       .map((h) => {
         const jvPast = jvPastByHorse[h.horseId];
@@ -112,13 +116,16 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           : pedigreeAptitudeAdjustment(pedigreeStatsById[h.sireId], pedigreeStatsById[h.damsireId], race.distance);
         const paddockGrade = paddockByNum[h.num];
         const paddock = paddockAdjustment(paddockGrade);
+        const handicap = handicapWeightAdjustment(race.isHandicap, h.futanJuryo, fieldAvgFutanJuryo);
         const extra = [
           ...(aiAdjustment !== 0 ? [{ label: "AI評価", score: aiAdjustment }] : []),
           ...(bias ? [{ label: bias.label, score: bias.score }] : []),
           ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
           ...(paddock ? [{ label: paddock.label, score: paddock.score }] : []),
+          ...(handicap ? [{ label: handicap.label, score: handicap.score }] : []),
         ];
-        const extraTotal = aiAdjustment + (bias?.score ?? 0) + (aptitude?.score ?? 0) + (paddock?.score ?? 0);
+        const extraTotal =
+          aiAdjustment + (bias?.score ?? 0) + (aptitude?.score ?? 0) + (paddock?.score ?? 0) + (handicap?.score ?? 0);
         const hasPastData = Boolean(jvPast && jvPast.length > 0);
         return {
           ...h,
