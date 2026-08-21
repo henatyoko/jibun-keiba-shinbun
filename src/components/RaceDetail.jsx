@@ -284,15 +284,15 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               </div>
             </div>
 
-            {h.result && (
+            {(h.result || h.odds != null) && (
               <div className="flex items-start gap-2 mb-1.5">
                 <div className="w-6 shrink-0" aria-hidden="true" />
                 <div style={{ width: 28 }} className="shrink-0" aria-hidden="true" />
                 <div
                   className="text-[0.625rem] font-bold flex-1 min-w-0"
-                  style={{ color: h.result === 1 ? RED : h.result <= 3 ? INK : MUTED }}
+                  style={{ color: h.result === 1 ? RED : h.result && h.result <= 3 ? INK : MUTED }}
                 >
-                  結果:{h.result}着
+                  {h.result ? `結果:${h.result}着` : "オッズ:"}
                   {h.odds != null && (
                     <span className="font-normal" style={{ color: MUTED }}>
                       {" "}
