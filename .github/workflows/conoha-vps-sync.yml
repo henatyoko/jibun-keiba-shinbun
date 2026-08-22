@@ -1,16 +1,8 @@
 name: ConoHa VPS Scheduled Sync
 
-# 木曜17:00 JST(特別登録発表)・金曜17:00 JST(出馬表確定)・
-# 土曜8:00 JST・日曜8:00 JST(当日のオッズ・馬体重・直前の出走取消など)・
-# 日曜21:00 JST(レース終了後、払戻等の結果データ取込)にVPSを自動起動し、
-# JvLinkToImporterサービスがJV-Linkの取込を終える時間だけ待ってから自動停止する。
+# 定期自動起動は廃止(JvLinkToImporter側のJV-Link認証が不安定で、無人での自動同期が
+# うまく機能しなかったため)。手動実行(workflow_dispatch)のみ残している。
 on:
-  schedule:
-    - cron: "0 8 * * 4" # 木曜 17:00 JST
-    - cron: "0 8 * * 5" # 金曜 17:00 JST
-    - cron: "0 23 * * 5" # 土曜 8:00 JST
-    - cron: "0 23 * * 6" # 日曜 8:00 JST
-    - cron: "0 12 * * 0" # 日曜 21:00 JST
   workflow_dispatch:
     inputs:
       wait_minutes:
