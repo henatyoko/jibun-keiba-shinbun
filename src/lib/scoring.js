@@ -156,6 +156,7 @@ export function baseScoreFromPastRaces(pastRaces) {
   const RECENCY_WEIGHTS = [5, 4, 3, 2, 1];
   let weightedSum = 0;
   let weightTotal = 0;
+  let sampleCount = 0;
 
   pastRaces.slice(0, 5).forEach((r, i) => {
     const finish = Number(r.kakutei_chakujun);
@@ -166,10 +167,15 @@ export function baseScoreFromPastRaces(pastRaces) {
     const weight = RECENCY_WEIGHTS[i] ?? 1;
     weightedSum += point * weight;
     weightTotal += weight;
+    sampleCount += 1;
   });
 
   if (weightTotal === 0) return 70;
-  let avg = weightedSum / weightTotal;
+  // 実績のある過去走数(sampleCount)が少ないほど基礎点70寄りに評価を弱める(縮小)。
+  // 新馬・未勝利戦は出走馬の多くが1走以下しか実績が無く、1走だけの結果でスコアが
+  // 大きく振れてしまい、3着以内的中率が異常に低くなることが実データ検証で判明したため。
+  const shrinkFactor = Math.min(sampleCount / 5, 1);
+  let avg = (weightedSum / weightTotal) * shrinkFactor;
 
   const agariTimes = pastRaces
     .slice(0, 5)
