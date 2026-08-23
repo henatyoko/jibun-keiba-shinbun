@@ -5,8 +5,10 @@ import {
   courseBiasAdjustment,
   distanceAptitudeAdjustment,
   handicapWeightAdjustment,
+  trainingAdjustment,
   computeMarks,
 } from "./scoring";
+import { fetchRecentTrainingWorks } from "./trainingRepository";
 
 // 振り返り表示中の全レースについて、印(◎○▲)ごとの「3位以内的中率」を集計する。
 // AI評価・パドックは重い/その場限りの補正のため含めず、基礎点(JV-Data)・枠番傾向・
@@ -46,6 +48,9 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     jvPastByHorse[horseId] = (rowsByHorse[horseId] || []).filter((r) => r.race_code < cutoff).slice(0, 5);
   });
 
+  // 振り返り対象は同日開催前提なので、代表として1レース目の日付を調教データの基準日にする
+  const trainingByHorse = await fetchRecentTrainingWorks(horseIds, pastReviewRaces[0].rawDate);
+
   const tally = { "◎": { hit: 0, total: 0 }, "○": { hit: 0, total: 0 }, "▲": { hit: 0, total: 0 } };
 
   pastReviewRaces.forEach((race) => {
@@ -60,15 +65,17 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       const bias = courseBiasAdjustment(h.waku, race.place, race.distance);
       const aptitude = distanceAptitudeAdjustment(h.distanceStats, race.distance);
       const handicap = handicapWeightAdjustment(race.isHandicap, h.futanJuryo, fieldAvgFutanJuryo);
+      const training = trainingAdjustment(trainingByHorse[h.horseId]);
       const extra = [
         ...(bias ? [{ label: bias.label, score: bias.score }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
         ...(handicap ? [{ label: handicap.label, score: handicap.score }] : []),
+        ...(training ? [{ label: training.label, score: training.score }] : []),
       ];
       return {
         ...h,
         hasPastData,
-        total: total + (bias?.score ?? 0) + (aptitude?.score ?? 0) + (handicap?.score ?? 0),
+        total: total + (bias?.score ?? 0) + (aptitude?.score ?? 0) + (handicap?.score ?? 0) + (training?.score ?? 0),
         applied: [...applied, ...extra],
       };
     });
