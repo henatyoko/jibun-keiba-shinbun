@@ -194,7 +194,7 @@ export function baseScoreFromPastRaces(pastRaces) {
 
 // スコア済みの馬一覧(num, rank, total, hasPastData, appliedを持つ)から印を判定する。
 // ◎○▲はスコア上位固定、△は3位との得点差が僅かな馬全員(0〜複数頭)、
-// 穴は機械的に5位固定にせず「得点は低いが加点材料がある馬」の中で最高得点の馬だけに付ける。
+// 穴は機械的に5位固定にせず「得点は低いが加点材料がある馬」の中で最高得点の馬(同点なら全員)に付ける。
 // 過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって紛らわしいため
 // 印を一切付けない(noDifferentiation)。
 const TRIANGLE_THRESHOLD = 4;
@@ -220,8 +220,10 @@ export function computeMarks(scored) {
   }
   const anaCandidates = byRank.filter((h) => !marks[h.num] && h.applied.some((a) => a.score > 0));
   if (anaCandidates.length > 0) {
-    const best = anaCandidates.reduce((a, b) => (b.total > a.total ? b : a));
-    marks[best.num] = MARKS[4];
+    const bestTotal = Math.max(...anaCandidates.map((h) => h.total));
+    anaCandidates.filter((h) => h.total === bestTotal).forEach((h) => {
+      marks[h.num] = MARKS[4];
+    });
   }
 
   return { marksByNum: marks, noDifferentiation: false };
