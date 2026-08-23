@@ -197,7 +197,7 @@ export function baseScoreFromPastRaces(pastRaces) {
 // 穴は機械的に5位固定にせず「得点は低いが加点材料がある馬」の中で最高得点の馬だけに付ける。
 // 過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって紛らわしいため
 // 印を一切付けない(noDifferentiation)。
-const TRIANGLE_THRESHOLD = 5;
+const TRIANGLE_THRESHOLD = 4;
 
 export function computeMarks(scored) {
   const noDifferentiation = scored.every((h) => !h.hasPastData && h.applied.length === 0);
