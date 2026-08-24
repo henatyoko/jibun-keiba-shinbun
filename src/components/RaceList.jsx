@@ -103,22 +103,24 @@ export default function RaceList({ races, attrRules, trendRules, onSelect }) {
       )}
 
       {places.length > 1 && (
-        <div className="flex gap-2 mb-4 overflow-x-auto">
-          {places.map((p) => (
-            <button
-              key={p}
-              onClick={() => setPlace(p)}
-              className="px-3 py-1.5 text-sm font-semibold shrink-0"
-              style={{
-                background: place === p ? INK : "transparent",
-                color: place === p ? "#F1E9D8" : INK,
-                border: `1px solid ${place === p ? INK : MUTED}`,
-                fontFamily: "'Shippori Mincho', serif",
-              }}
-            >
-              {p}
-            </button>
-          ))}
+        <div className="mb-4">
+          <select
+            value={place ?? ""}
+            onChange={(e) => setPlace(e.target.value)}
+            className="px-3 py-1.5 text-sm font-semibold"
+            style={{
+              background: INK,
+              color: "#F1E9D8",
+              border: `1px solid ${INK}`,
+              fontFamily: "'Shippori Mincho', serif",
+            }}
+          >
+            {places.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
