@@ -245,7 +245,8 @@ export function computeMarks(scored) {
 
 // 上位馬同士の素点の差(ばらつき)から、大まかな馬券の買い方の方向性を提案する。
 // 1位が2位から大きく抜けている(一強)なら軸から流し、上位3頭が僅差(拮抗)ならBOXを勧める。
-// 閾値(6点・3点)は目安であり、精緻な最適化はしていない。
+// 差の大きさでさらに段階分けし、コメントの言い回しにもバリエーションを持たせる。
+// 閾値は目安であり、精緻な最適化はしていない。
 export function suggestBettingPattern(scored) {
   const byScore = [...scored].sort((a, b) => b.total - a.total);
   if (byScore.length < 3) return null;
@@ -253,11 +254,25 @@ export function suggestBettingPattern(scored) {
   const gapTop2 = first.total - second.total;
   const gapTop3 = first.total - third.total;
 
+  if (gapTop2 >= 10) {
+    return {
+      pattern: "一強",
+      label: `◎が圧倒的(2位と${gapTop2}点差)`,
+      detail: "頭数を絞った単勝・複勝や、◎軸の3連単1着固定が合いそうです",
+    };
+  }
   if (gapTop2 >= 6) {
     return {
       pattern: "一強",
       label: `◎から流し(2位と${gapTop2}点差)`,
       detail: "◎が頭一つ抜けているので、◎軸の馬連・3連複流しが合いそうです",
+    };
+  }
+  if (gapTop3 <= 1) {
+    return {
+      pattern: "拮抗",
+      label: `上位3頭がほぼ横並び(${gapTop3}点差)`,
+      detail: "実力差がほぼ無いので、◎○▲での3連複BOXが合いそうです",
     };
   }
   if (gapTop3 <= 3) {
@@ -270,6 +285,6 @@ export function suggestBettingPattern(scored) {
   return {
     pattern: "標準",
     label: "◎○▲に厚め、△穴は抑えで",
-    detail: null,
+    detail: "上位と下位でそれなりに差があるので、点数を絞った手厚い買い方が合いそうです",
   };
 }
