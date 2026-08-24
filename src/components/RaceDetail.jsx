@@ -168,6 +168,14 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     return [...scored].sort((a, b) => a.rank - b.rank);
   }, [scored, sortMode]);
 
+  // 振り返り表示中、実際の上位3頭を着順順に並べ、予想順位と見比べやすくする
+  const top3Actual = useMemo(() => {
+    if (!race.isPastReview) return [];
+    return scored
+      .filter((h) => h.result && h.result <= 3)
+      .sort((a, b) => a.result - b.result);
+  }, [scored, race.isPastReview]);
+
   return (
     <div className="px-4 pt-4 pb-24">
       <div className="flex items-center gap-2 mb-3">
@@ -217,6 +225,26 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           <p className="text-xs px-2 py-1" style={{ color: MUTED, border: `1px dashed ${MUTED}` }}>
             振り返り表示(このレースは終了済みです)
           </p>
+        </div>
+      )}
+      {top3Actual.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {top3Actual.map((h) => (
+            <div key={h.num} className="flex items-center gap-1.5 px-2 py-1" style={{ border: `1px solid ${INK}` }}>
+              <span
+                className="font-black text-sm"
+                style={{ color: h.result === 1 ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
+              >
+                {h.result}着
+              </span>
+              <span className="text-xs font-bold" style={{ color: INK }}>
+                {h.name}
+              </span>
+              <span className="text-xs font-bold" style={{ color: MUTED, fontFamily: "'Shippori Mincho', serif" }}>
+                {marksByNum[h.num] || "無印"}
+              </span>
+            </div>
+          ))}
         </div>
       )}
       <div className="flex gap-2 mb-3">
@@ -275,6 +303,14 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               </div>
               <WakuBadge num={h.num} />
               <div className="flex-1 min-w-0">
+                {h.result && (
+                  <div
+                    className="font-black text-sm"
+                    style={{ color: h.result === 1 ? RED : h.result <= 3 ? INK : MUTED, fontFamily: "'Shippori Mincho', serif" }}
+                  >
+                    {h.result}着
+                  </div>
+                )}
                 <div className="font-bold text-[0.9375rem]" style={{ color: INK, fontFamily: "'Shippori Mincho', serif" }}>
                   {h.name}
                 </div>
@@ -328,7 +364,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                   className="text-[0.625rem] font-bold flex-1 min-w-0"
                   style={{ color: h.result === 1 ? RED : h.result && h.result <= 3 ? INK : MUTED }}
                 >
-                  {h.result ? `結果:${h.result}着` : "オッズ:"}
+                  {h.result ? "" : "オッズ:"}
                   {h.odds != null && (
                     <span className="font-normal" style={{ color: MUTED }}>
                       {" "}
