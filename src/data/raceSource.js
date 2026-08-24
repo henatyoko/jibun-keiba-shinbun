@@ -36,12 +36,28 @@ export async function fetchRaces() {
   if (!latest || latest.length === 0) return MOCK_RACES;
 
   const { kaisai_nen, kaisai_gappi } = latest[0];
-  const dayPrefix = `${kaisai_nen}${kaisai_gappi}`;
+  const latestDayPrefix = `${kaisai_nen}${kaisai_gappi}`;
+
+  // 直近の開催日の前日にも開催があれば(土日開催のパターン)、両日まとめて振り返り対象にする
+  const latestDate = new Date(
+    `${kaisai_nen}-${kaisai_gappi.slice(0, 2)}-${kaisai_gappi.slice(2, 4)}T00:00:00+09:00`
+  );
+  const prevDate = new Date(latestDate.getTime() - 24 * 60 * 60 * 1000);
+  const prevDayPrefix = `${prevDate.getFullYear()}${String(prevDate.getMonth() + 1).padStart(2, "0")}${String(prevDate.getDate()).padStart(2, "0")}`;
+
+  const { data: prevDayCheck } = await supabase
+    .from("race_shosai")
+    .select("race_code")
+    .gte("race_code", `${prevDayPrefix}0000000000`)
+    .lt("race_code", `${prevDayPrefix}9999999999`)
+    .limit(1);
+  const rangeStartPrefix = prevDayCheck && prevDayCheck.length > 0 ? prevDayPrefix : latestDayPrefix;
+
   const { data: pastRows, error: pastError } = await supabase
     .from("race_shosai")
     .select(RACE_SHOSAI_COLUMNS)
-    .gte("race_code", `${dayPrefix}0000000000`)
-    .lt("race_code", `${dayPrefix}9999999999`)
+    .gte("race_code", `${rangeStartPrefix}0000000000`)
+    .lt("race_code", `${latestDayPrefix}9999999999`)
     .order("race_code", { ascending: true });
 
   if (pastError || !pastRows || pastRows.length === 0) return MOCK_RACES;
