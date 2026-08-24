@@ -13,6 +13,7 @@ import {
   trainingAdjustment,
   paddockAdjustment,
   computeMarks,
+  suggestBettingPattern,
 } from "../lib/scoring";
 import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
 import { fetchAiNotes } from "../lib/aiNotesRepository";
@@ -177,6 +178,11 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
       .sort((a, b) => a.result - b.result);
   }, [scored, race.isPastReview]);
 
+  const bettingSuggestion = useMemo(() => {
+    if (loadingPast || computedMarks.noDifferentiation) return null;
+    return suggestBettingPattern(scored);
+  }, [scored, loadingPast, computedMarks.noDifferentiation]);
+
   return (
     <div className="px-4 pt-4 pb-24">
       <div className="flex items-center gap-2 mb-3">
@@ -266,6 +272,19 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               </span>
             </div>
           ))}
+        </div>
+      )}
+      {bettingSuggestion && (
+        <div className="mb-3 px-3 py-2 text-xs" style={{ background: PAPER_CARD, border: `1px solid ${INK}`, color: INK }}>
+          <span className="font-bold" style={{ fontFamily: "'Shippori Mincho', serif" }}>
+            {bettingSuggestion.pattern}
+          </span>
+          <span className="ml-1.5">{bettingSuggestion.label}</span>
+          {bettingSuggestion.detail && (
+            <span className="block mt-0.5" style={{ color: MUTED }}>
+              {bettingSuggestion.detail}
+            </span>
+          )}
         </div>
       )}
       <div className="flex gap-2 mb-3">

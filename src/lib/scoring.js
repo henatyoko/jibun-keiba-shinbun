@@ -242,3 +242,34 @@ export function computeMarks(scored) {
 
   return { marksByNum: marks, noDifferentiation: false };
 }
+
+// 上位馬同士の素点の差(ばらつき)から、大まかな馬券の買い方の方向性を提案する。
+// 1位が2位から大きく抜けている(一強)なら軸から流し、上位3頭が僅差(拮抗)ならBOXを勧める。
+// 閾値(6点・3点)は目安であり、精緻な最適化はしていない。
+export function suggestBettingPattern(scored) {
+  const byScore = [...scored].sort((a, b) => b.total - a.total);
+  if (byScore.length < 3) return null;
+  const [first, second, third] = byScore;
+  const gapTop2 = first.total - second.total;
+  const gapTop3 = first.total - third.total;
+
+  if (gapTop2 >= 6) {
+    return {
+      pattern: "一強",
+      label: `◎から流し(2位と${gapTop2}点差)`,
+      detail: "◎が頭一つ抜けているので、◎軸の馬連・3連複流しが合いそうです",
+    };
+  }
+  if (gapTop3 <= 3) {
+    return {
+      pattern: "拮抗",
+      label: `上位3頭が接戦(${gapTop3}点差)`,
+      detail: "上位が僅差なので、◎○▲でのBOX買いが合いそうです",
+    };
+  }
+  return {
+    pattern: "標準",
+    label: "◎○▲に厚め、△穴は抑えで",
+    detail: null,
+  };
+}
