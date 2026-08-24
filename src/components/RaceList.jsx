@@ -64,7 +64,7 @@ export default function RaceList({ races, attrRules, trendRules, onSelect }) {
 
       {markAccuracy && (
         <div className="mb-3 flex gap-2 flex-wrap">
-          {["◎", "○", "▲", "△"].map((mark) => {
+          {["◎", "○", "▲", "△", "穴"].map((mark) => {
             const stat = markAccuracy[mark];
             if (!stat || stat.total === 0) return null;
             const rate = Math.round((stat.hit / stat.total) * 100);

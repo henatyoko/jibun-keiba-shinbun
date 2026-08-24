@@ -27,6 +27,16 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
   const horseIds = Object.keys(horseRaceCode);
   if (horseIds.length === 0) return null;
 
+  // 全馬の全キャリア(2018年〜)を毎回読むと重いため、直近450日분だけに絞る
+  // (基礎点は直近5走しか使わないので、それより古い分を取っても意味が無い)。
+  const earliestReviewDate = pastReviewRaces.reduce(
+    (min, r) => (r.rawDate < min ? r.rawDate : min),
+    pastReviewRaces[0].rawDate
+  );
+  const cutoffDate = new Date(`${earliestReviewDate}T00:00:00+09:00`);
+  cutoffDate.setDate(cutoffDate.getDate() - 450);
+  const cutoffPrefix = `${cutoffDate.getFullYear()}${String(cutoffDate.getMonth() + 1).padStart(2, "0")}${String(cutoffDate.getDate()).padStart(2, "0")}`;
+
   // 対象馬が多いと該当行数がSupabase/PostgRESTの1回あたりの上限(既定1000件)を超えるため、
   // .range()でページングして全件取得する(打ち切られると新しい順に一部の馬だけ過去走データが
   // 欠け、基礎点が不当に70固定になってしまう)。
@@ -37,6 +47,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       .from("umagoto_race_joho")
       .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f, kakutoku_honshokin")
       .in("ketto_toroku_bango", horseIds)
+      .gte("race_code", `${cutoffPrefix}0000000000`)
       .not("kakutei_chakujun", "is", null)
       .neq("kakutei_chakujun", "")
       .order("race_code", { ascending: false })
@@ -46,6 +57,8 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     data.push(...page);
     if (page.length < PAGE_SIZE) break;
   }
+
+  const trainingByHorse = await fetchRecentTrainingWorks(horseIds, pastReviewRaces[0].rawDate);
 
   const rowsByHorse = {};
   data.forEach((row) => {
@@ -58,14 +71,12 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     jvPastByHorse[horseId] = (rowsByHorse[horseId] || []).filter((r) => r.race_code < cutoff).slice(0, 5);
   });
 
-  // 振り返り対象は同日開催前提なので、代表として1レース目の日付を調教データの基準日にする
-  const trainingByHorse = await fetchRecentTrainingWorks(horseIds, pastReviewRaces[0].rawDate);
-
   const tally = {
     "◎": { hit: 0, total: 0 },
     "○": { hit: 0, total: 0 },
     "▲": { hit: 0, total: 0 },
     "△": { hit: 0, total: 0 },
+    "穴": { hit: 0, total: 0 },
   };
 
   pastReviewRaces.forEach((race) => {
