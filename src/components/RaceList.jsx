@@ -58,7 +58,9 @@ export default function RaceList({ races, attrRules, trendRules, onSelect }) {
 
       {races[0]?.isPastReview && (
         <div className="mb-3 px-3 py-2 text-xs" style={{ background: PAPER_CARD, border: `1px solid ${MUTED}`, color: MUTED }}>
-          次の開催データがまだ取り込まれていないため、直近開催({formatDateLabel(races[0].rawDate)})の結果を振り返り表示しています
+          次の開催データがまだ取り込まれていないため、直近開催(
+          {dates.length > 1 ? `${formatDateLabel(dates[0])}〜${formatDateLabel(dates[dates.length - 1])}` : formatDateLabel(dates[0])}
+          )の結果を振り返り表示しています
         </div>
       )}
 
