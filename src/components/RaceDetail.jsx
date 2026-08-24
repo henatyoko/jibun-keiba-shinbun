@@ -40,9 +40,9 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     setSortMode("score");
   }, [race.id]);
 
-  // 同じ開催日・同じ競馬場のレースをレース番号順に並べ、前後移動に使う。
-  const { prevRace, nextRace } = useMemo(() => {
-    if (!races) return { prevRace: null, nextRace: null };
+  // 同じ開催日・同じ競馬場のレースをレース番号順に並べ、前後移動・プルダウン移動に使う。
+  const { prevRace, nextRace, siblingRaces } = useMemo(() => {
+    if (!races) return { prevRace: null, nextRace: null, siblingRaces: [] };
     const siblings = races
       .filter((r) => r.place === race.place && r.rawDate === race.rawDate)
       .sort((a, b) => (a.raceNumber ?? 0) - (b.raceNumber ?? 0));
@@ -50,6 +50,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     return {
       prevRace: idx > 0 ? siblings[idx - 1] : null,
       nextRace: idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : null,
+      siblingRaces: siblings,
     };
   }, [races, race]);
 
@@ -195,15 +196,30 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           style={{ color: INK, border: `1px solid ${INK}` }}
         >
           <ChevronLeft size={18} />
-          {prevRace?.raceNumber ? `${prevRace.raceNumber}R` : ""}
         </button>
+        {siblingRaces.length > 1 && (
+          <select
+            value={race.id}
+            onChange={(e) => {
+              const target = siblingRaces.find((r) => r.id === e.target.value);
+              if (target) onNavigate(target);
+            }}
+            className="px-2 py-2 text-sm font-bold"
+            style={{ color: INK, border: `1px solid ${INK}`, background: PAPER_CARD }}
+          >
+            {siblingRaces.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.raceNumber}R
+              </option>
+            ))}
+          </select>
+        )}
         <button
           onClick={() => nextRace && onNavigate(nextRace)}
           disabled={!nextRace}
           className="flex items-center px-2 py-2 text-sm font-bold active:opacity-70 transition-opacity disabled:opacity-30"
           style={{ color: INK, border: `1px solid ${INK}` }}
         >
-          {nextRace?.raceNumber ? `${nextRace.raceNumber}R` : ""}
           <ChevronRight size={18} />
         </button>
       </div>
@@ -240,6 +256,11 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               <span className="text-xs font-bold" style={{ color: INK }}>
                 {h.name}
               </span>
+              {h.ninki != null && (
+                <span className="text-[0.625rem]" style={{ color: MUTED }}>
+                  {h.ninki}人気
+                </span>
+              )}
               <span className="text-xs font-bold" style={{ color: MUTED, fontFamily: "'Shippori Mincho', serif" }}>
                 {marksByNum[h.num] || "無印"}
               </span>
