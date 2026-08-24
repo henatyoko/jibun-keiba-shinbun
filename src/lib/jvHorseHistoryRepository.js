@@ -7,16 +7,25 @@ import { supabase } from "./supabaseClient";
 export async function fetchJvPastRaces(horseIds, beforeRaceCode) {
   if (!horseIds || horseIds.length === 0 || !beforeRaceCode) return {};
 
-  const { data, error } = await supabase
-    .from("umagoto_race_joho")
-    .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f, kakutoku_honshokin")
-    .in("ketto_toroku_bango", horseIds)
-    .lt("race_code", beforeRaceCode)
-    .not("kakutei_chakujun", "is", null)
-    .neq("kakutei_chakujun", "")
-    .order("race_code", { ascending: false });
-
-  if (error || !data) return {};
+  // 出走馬が多い/長く走っている馬が多いレースだと該当行数がSupabase/PostgRESTの
+  // 1回あたりの上限(既定1000件)を超えることがあるため、.range()でページングして全件取得する。
+  const PAGE_SIZE = 1000;
+  const data = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: page, error } = await supabase
+      .from("umagoto_race_joho")
+      .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f, kakutoku_honshokin")
+      .in("ketto_toroku_bango", horseIds)
+      .lt("race_code", beforeRaceCode)
+      .not("kakutei_chakujun", "is", null)
+      .neq("kakutei_chakujun", "")
+      .order("race_code", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) return {};
+    if (!page || page.length === 0) break;
+    data.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
 
   const byHorse = {};
   data.forEach((row) => {

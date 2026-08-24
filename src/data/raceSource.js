@@ -64,25 +64,37 @@ export async function fetchRaces() {
   return assembleRaces(pastRows, true);
 }
 
+// 対象レースが多い(複数場・複数日開催)とSupabase/PostgRESTの1回あたりの上限(既定1000件)を
+// 超えることがあるため、.range()でページングして全件取得する。
+async function fetchAllRows(table, columns, filterFn) {
+  const PAGE_SIZE = 1000;
+  const rows = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await filterFn(supabase.from(table).select(columns)).range(from, from + PAGE_SIZE - 1);
+    if (error) return { rows, error };
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+  }
+  return { rows, error: null };
+}
+
 async function assembleRaces(raceRows, isPastReview) {
   const raceCodes = raceRows.map((r) => r.race_code);
-  const { data: entryRows, error: entryError } = await supabase
-    .from("umagoto_race_joho")
-    .select(
-      "race_code, umaban, wakuban, ketto_toroku_bango, bamei, kishumei_ryakusho, chokyoshimei_ryakusho, banushimei_hojinkaku_nashi, barei, kakutei_chakujun, tansho_odds, tansho_ninkijun, futan_juryo"
-    )
-    .in("race_code", raceCodes);
+  const { rows: entryRows, error: entryError } = await fetchAllRows(
+    "umagoto_race_joho",
+    "race_code, umaban, wakuban, ketto_toroku_bango, bamei, kishumei_ryakusho, chokyoshimei_ryakusho, banushimei_hojinkaku_nashi, barei, kakutei_chakujun, tansho_odds, tansho_ninkijun, futan_juryo",
+    (q) => q.in("race_code", raceCodes)
+  );
 
   if (entryError) return MOCK_RACES;
 
   // umagoto_race_joho(SE)のtansho_odds/tansho_ninkijunはレース確定後に埋まる確定オッズのため、
   // レース前は仕様上ずっと未確定("0000")のまま。レース前のオッズはodds1_tansho(時系列オッズ)側にしか
   // 無いので、そちらの最新スナップショットを優先して使う。
-  const { data: oddsRows } = await supabase
-    .from("odds1_tansho")
-    .select("race_code, umaban, odds, ninki, insert_timestamp")
-    .in("race_code", raceCodes)
-    .order("insert_timestamp", { ascending: false });
+  const { rows: oddsRows } = await fetchAllRows("odds1_tansho", "race_code, umaban, odds, ninki, insert_timestamp", (q) =>
+    q.in("race_code", raceCodes).order("insert_timestamp", { ascending: false })
+  );
   const latestOddsByKey = {};
   (oddsRows || []).forEach((o) => {
     const key = `${o.race_code}_${o.umaban}`;

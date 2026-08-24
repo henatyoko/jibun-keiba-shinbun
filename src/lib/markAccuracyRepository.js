@@ -27,15 +27,25 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
   const horseIds = Object.keys(horseRaceCode);
   if (horseIds.length === 0) return null;
 
-  const { data, error } = await supabase
-    .from("umagoto_race_joho")
-    .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f, kakutoku_honshokin")
-    .in("ketto_toroku_bango", horseIds)
-    .not("kakutei_chakujun", "is", null)
-    .neq("kakutei_chakujun", "")
-    .order("race_code", { ascending: false });
-
-  if (error || !data) return null;
+  // 対象馬が多いと該当行数がSupabase/PostgRESTの1回あたりの上限(既定1000件)を超えるため、
+  // .range()でページングして全件取得する(打ち切られると新しい順に一部の馬だけ過去走データが
+  // 欠け、基礎点が不当に70固定になってしまう)。
+  const PAGE_SIZE = 1000;
+  const data = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: page, error } = await supabase
+      .from("umagoto_race_joho")
+      .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f, kakutoku_honshokin")
+      .in("ketto_toroku_bango", horseIds)
+      .not("kakutei_chakujun", "is", null)
+      .neq("kakutei_chakujun", "")
+      .order("race_code", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) return null;
+    if (!page || page.length === 0) break;
+    data.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
 
   const rowsByHorse = {};
   data.forEach((row) => {
@@ -51,7 +61,12 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
   // 振り返り対象は同日開催前提なので、代表として1レース目の日付を調教データの基準日にする
   const trainingByHorse = await fetchRecentTrainingWorks(horseIds, pastReviewRaces[0].rawDate);
 
-  const tally = { "◎": { hit: 0, total: 0 }, "○": { hit: 0, total: 0 }, "▲": { hit: 0, total: 0 } };
+  const tally = {
+    "◎": { hit: 0, total: 0 },
+    "○": { hit: 0, total: 0 },
+    "▲": { hit: 0, total: 0 },
+    "△": { hit: 0, total: 0 },
+  };
 
   pastReviewRaces.forEach((race) => {
     const futanJuryoList = race.horses.map((h) => h.futanJuryo).filter((v) => Number.isFinite(v));
