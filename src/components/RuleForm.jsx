@@ -79,8 +79,8 @@ export default function RuleForm({
 
       <div className="flex gap-2 mb-4">
         {[
-          { key: "attr", label: "属性ルール", icon: Sparkles },
-          { key: "trend", label: "傾向ルール", icon: Flag },
+          { key: "attr", label: "属性", icon: Sparkles },
+          { key: "trend", label: "傾向", icon: Flag },
           { key: "free", label: "自由入力", icon: Wand2 },
         ].map((t) => (
           <button
