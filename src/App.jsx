@@ -15,7 +15,7 @@ import {
   deleteTrendRule,
 } from "./lib/rulesRepository";
 import { supabase, isSupabaseConfigured } from "./lib/supabaseClient";
-import { PAPER, INK } from "./lib/colors";
+import { PAPER, INK, RED, MINT } from "./lib/colors";
 
 export default function App() {
   const [tab, setTab] = useState("race");
@@ -176,7 +176,7 @@ export default function App() {
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-20" style={{ background: INK, borderTop: `2px solid ${PAPER}` }}>
+      <div className="fixed bottom-0 left-0 right-0 z-20" style={{ background: MINT, borderTop: `2px solid ${INK}` }}>
         <div className="max-w-md mx-auto flex">
           {[
             { key: "race", label: "レース", icon: Flag },
@@ -190,10 +190,10 @@ export default function App() {
               }}
               className="flex-1 flex flex-col items-center gap-0.5 py-2.5"
             >
-              <t.icon size={18} color={tab === t.key ? "#E8B4A8" : PAPER} style={{ opacity: tab === t.key ? 1 : 0.6 }} />
+              <t.icon size={18} color={tab === t.key ? RED : INK} style={{ opacity: tab === t.key ? 1 : 0.6 }} />
               <span
                 className="text-[0.625rem] font-semibold"
-                style={{ color: tab === t.key ? "#E8B4A8" : PAPER, opacity: tab === t.key ? 1 : 0.6, fontFamily: "'Shippori Mincho', serif" }}
+                style={{ color: tab === t.key ? RED : INK, opacity: tab === t.key ? 1 : 0.6, fontFamily: "'Shippori Mincho', serif" }}
               >
                 {t.label}
               </span>
