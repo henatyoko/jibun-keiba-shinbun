@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from "react-router-dom";
 import { Flag, Sparkles } from "lucide-react";
 import Masthead from "./components/Masthead";
 import RaceList from "./components/RaceList";
@@ -17,11 +18,43 @@ import {
 import { supabase, isSupabaseConfigured } from "./lib/supabaseClient";
 import { PAPER, INK, MINT } from "./lib/colors";
 
+function RaceDetailRoute({ races, racesLoading, attrRules, trendRules, userId }) {
+  const { raceId } = useParams();
+  const navigate = useNavigate();
+  const race = races.find((r) => r.id === raceId);
+
+  if (!race) {
+    if (racesLoading) {
+      return (
+        <div className="fixed inset-0 z-[5] flex flex-col items-center justify-center gap-2" style={{ background: "rgba(241, 233, 216, 0.9)" }}>
+          <div className="horse-run-track">
+            <span>🐎</span>
+          </div>
+          <p className="text-xs" style={{ color: INK }}>
+            レース情報を取得中…
+          </p>
+        </div>
+      );
+    }
+    return <Navigate to="/" replace />;
+  }
+
+  return (
+    <RaceDetail
+      race={race}
+      races={races}
+      attrRules={attrRules}
+      trendRules={trendRules}
+      userId={userId}
+      onBack={() => navigate("/")}
+      onNavigate={(r) => navigate(`/races/${r.id}`)}
+    />
+  );
+}
+
 export default function App() {
-  const [tab, setTab] = useState("race");
   const [races, setRaces] = useState([]);
   const [racesLoading, setRacesLoading] = useState(true);
-  const [selectedRace, setSelectedRace] = useState(null);
   const [attrRules, setAttrRules] = useState([]);
   const [trendRules, setTrendRules] = useState([]);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
@@ -29,6 +62,8 @@ export default function App() {
   const [sessionChecked, setSessionChecked] = useState(!isSupabaseConfigured);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const authScreenRef = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // 未ログインで知見を保存しようとした時、ログイン欄までスクロールして知らせる
   const requireLogin = () => {
@@ -122,6 +157,8 @@ export default function App() {
     return <ResetPasswordForm onDone={() => setPasswordRecovery(false)} />;
   }
 
+  const activeTab = location.pathname.startsWith("/rules") ? "rules" : "race";
+
   return (
     <div className="min-h-screen relative" style={{ background: PAPER, fontFamily: "'Zen Old Mincho','Shippori Mincho',serif" }}>
       <Masthead
@@ -131,73 +168,82 @@ export default function App() {
       />
 
       <div className="max-w-md mx-auto relative pb-16" style={{ background: PAPER, minHeight: "100vh" }}>
-        {tab === "race" &&
-          (selectedRace ? (
-            <RaceDetail
-              race={selectedRace}
-              races={races}
-              attrRules={attrRules}
-              trendRules={trendRules}
-              userId={session?.user?.id}
-              onBack={() => setSelectedRace(null)}
-              onNavigate={setSelectedRace}
-            />
-          ) : racesLoading ? (
-            <div className="fixed inset-0 z-[5] flex flex-col items-center justify-center gap-2" style={{ background: "rgba(241, 233, 216, 0.9)" }}>
-              <div className="horse-run-track">
-                <span>🐎</span>
-              </div>
-              <p className="text-xs" style={{ color: INK }}>
-                レース情報を取得中…
-              </p>
-            </div>
-          ) : (
-            <RaceList races={races} attrRules={attrRules} trendRules={trendRules} onSelect={setSelectedRace} />
-          ))}
-        {tab === "rules" && (
-          <>
-            <RuleForm
-              races={races}
-              attrRules={session ? attrRules : []}
-              trendRules={session ? trendRules : []}
-              locked={!session}
-              onAddAttrRule={session ? handleAddAttrRule : requireLogin}
-              onDeleteAttrRule={session ? handleDeleteAttrRule : requireLogin}
-              onAddTrendRule={session ? handleAddTrendRule : requireLogin}
-              onDeleteTrendRule={session ? handleDeleteTrendRule : requireLogin}
-              saveState={session ? saveState : "idle"}
-            />
-            {!session && (
-              <div ref={authScreenRef}>
-                <AuthScreen />
-              </div>
-            )}
-          </>
-        )}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              racesLoading ? (
+                <div className="fixed inset-0 z-[5] flex flex-col items-center justify-center gap-2" style={{ background: "rgba(241, 233, 216, 0.9)" }}>
+                  <div className="horse-run-track">
+                    <span>🐎</span>
+                  </div>
+                  <p className="text-xs" style={{ color: INK }}>
+                    レース情報を取得中…
+                  </p>
+                </div>
+              ) : (
+                <RaceList races={races} attrRules={attrRules} trendRules={trendRules} onSelect={(r) => navigate(`/races/${r.id}`)} />
+              )
+            }
+          />
+          <Route
+            path="/races/:raceId"
+            element={
+              <RaceDetailRoute
+                races={races}
+                racesLoading={racesLoading}
+                attrRules={attrRules}
+                trendRules={trendRules}
+                userId={session?.user?.id}
+              />
+            }
+          />
+          <Route
+            path="/rules"
+            element={
+              <>
+                <RuleForm
+                  races={races}
+                  attrRules={session ? attrRules : []}
+                  trendRules={session ? trendRules : []}
+                  locked={!session}
+                  onAddAttrRule={session ? handleAddAttrRule : requireLogin}
+                  onDeleteAttrRule={session ? handleDeleteAttrRule : requireLogin}
+                  onAddTrendRule={session ? handleAddTrendRule : requireLogin}
+                  onDeleteTrendRule={session ? handleDeleteTrendRule : requireLogin}
+                  saveState={session ? saveState : "idle"}
+                />
+                {!session && (
+                  <div ref={authScreenRef}>
+                    <AuthScreen />
+                  </div>
+                )}
+              </>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 z-20" style={{ background: MINT, borderTop: `2px solid ${INK}` }}>
         <div className="max-w-md mx-auto flex">
           {[
-            { key: "race", label: "レース", icon: Flag },
-            { key: "rules", label: "知見登録", icon: Sparkles },
+            { key: "race", label: "レース", icon: Flag, path: "/" },
+            { key: "rules", label: "知見登録", icon: Sparkles, path: "/rules" },
           ].map((t) => (
             <button
               key={t.key}
-              onClick={() => {
-                setTab(t.key);
-                setSelectedRace(null);
-              }}
+              onClick={() => navigate(t.path)}
               className="flex-1 flex flex-col items-center gap-0.5 py-2"
             >
               <div
                 className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-full"
-                style={{ background: tab === t.key ? PAPER : "transparent" }}
+                style={{ background: activeTab === t.key ? PAPER : "transparent" }}
               >
-                <t.icon size={18} color={INK} style={{ opacity: tab === t.key ? 1 : 0.55 }} />
+                <t.icon size={18} color={INK} style={{ opacity: activeTab === t.key ? 1 : 0.55 }} />
                 <span
                   className="text-[0.625rem] font-semibold"
-                  style={{ color: INK, opacity: tab === t.key ? 1 : 0.55, fontFamily: "'Shippori Mincho', serif" }}
+                  style={{ color: INK, opacity: activeTab === t.key ? 1 : 0.55, fontFamily: "'Shippori Mincho', serif" }}
                 >
                   {t.label}
                 </span>
