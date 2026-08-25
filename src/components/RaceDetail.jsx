@@ -186,7 +186,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           style={{ color: INK, background: PAPER_CARD, border: `1px solid ${INK}` }}
         >
           <ChevronLeft size={18} />
-          レース一覧に戻る
+          レース一覧
         </button>
         <div className="flex-1" />
         {siblingRaces.length > 1 && (
