@@ -9,29 +9,74 @@ import {
   computeMarks,
 } from "./scoring";
 import { fetchRecentTrainingWorks } from "./trainingRepository";
+import { saveSnapshotIfMissing } from "./raceSnapshotRepository";
 
-// 振り返り表示中の全レースについて、印(◎○▲)ごとの「3位以内的中率」を集計する。
-// AI評価・パドックは重い/その場限りの補正のため含めず、基礎点(JV-Data)・枠番傾向・
-// 自分ルールだけで印を計算する(個別のレース詳細画面の印とは多少ズレ得る)。
+function emptyTally() {
+  return {
+    "◎": { hit: 0, total: 0 },
+    "○": { hit: 0, total: 0 },
+    "▲": { hit: 0, total: 0 },
+    "△": { hit: 0, total: 0 },
+    "穴": { hit: 0, total: 0 },
+  };
+}
+
+function addToTally(tally, mark, result) {
+  if (!mark || !tally[mark]) return;
+  tally[mark].total += 1;
+  if (result && result <= 3) tally[mark].hit += 1;
+}
+
+// 振り返り表示中の全レースについて、印(◎○▲△穴)ごとの「3位以内的中率」を集計する。
+// ロジック変更をしても過去レースの答え合わせが遡って変わらないよう、race_snapshotsに
+// 固定結果があるレースはそれをそのまま使う(重い再計算を省略できる分、速くもなる)。
+// スナップショットが無いレースだけ、基礎点(JV-Data)・枠番傾向・自分ルールで計算し、
+// 計算し次第スナップショットとして保存する(個別のレース詳細画面の印とは多少ズレ得る:
+// AI評価・パドックは重い/その場限りの補正のため、まだスナップショットが無いレースの
+// この集計では含めない)。
 export async function computeMarkAccuracy(races, attrRules, trendRules) {
   const pastReviewRaces = races.filter((r) => r.isPastReview);
   if (pastReviewRaces.length === 0) return null;
 
+  const raceCodes = pastReviewRaces.map((r) => r.id);
+  const { data: snapshotRows } = await supabase.from("race_snapshots").select("*").in("race_code", raceCodes);
+  const snapshotsByRace = {};
+  (snapshotRows || []).forEach((row) => {
+    (snapshotsByRace[row.race_code] ||= {})[row.horse_num] = row;
+  });
+
+  const tally = emptyTally();
+
+  const racesNeedingCompute = pastReviewRaces.filter((race) => !snapshotsByRace[race.id]);
+
+  // スナップショット済みのレースは、固定結果をそのまま集計に使う
+  pastReviewRaces
+    .filter((race) => snapshotsByRace[race.id])
+    .forEach((race) => {
+      const snap = snapshotsByRace[race.id];
+      race.horses.forEach((h) => {
+        const row = snap[h.num];
+        if (row) addToTally(tally, row.mark, h.result);
+      });
+    });
+
+  if (racesNeedingCompute.length === 0) return tally;
+
   // 同日開催なので馬は1回しか出走しない前提で、馬ID→そのレースのrace_codeを引けるようにする
   const horseRaceCode = {};
-  pastReviewRaces.forEach((race) => {
+  racesNeedingCompute.forEach((race) => {
     race.horses.forEach((h) => {
       if (h.horseId) horseRaceCode[h.horseId] = race.id;
     });
   });
   const horseIds = Object.keys(horseRaceCode);
-  if (horseIds.length === 0) return null;
+  if (horseIds.length === 0) return tally;
 
   // 全馬の全キャリア(2018年〜)を毎回読むと重いため、直近450日분だけに絞る
   // (基礎点は直近5走しか使わないので、それより古い分を取っても意味が無い)。
-  const earliestReviewDate = pastReviewRaces.reduce(
+  const earliestReviewDate = racesNeedingCompute.reduce(
     (min, r) => (r.rawDate < min ? r.rawDate : min),
-    pastReviewRaces[0].rawDate
+    racesNeedingCompute[0].rawDate
   );
   const cutoffDate = new Date(`${earliestReviewDate}T00:00:00+09:00`);
   cutoffDate.setDate(cutoffDate.getDate() - 450);
@@ -58,7 +103,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     if (page.length < PAGE_SIZE) break;
   }
 
-  const trainingByHorse = await fetchRecentTrainingWorks(horseIds, pastReviewRaces[0].rawDate);
+  const trainingByHorse = await fetchRecentTrainingWorks(horseIds, racesNeedingCompute[0].rawDate);
 
   const rowsByHorse = {};
   data.forEach((row) => {
@@ -71,15 +116,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     jvPastByHorse[horseId] = (rowsByHorse[horseId] || []).filter((r) => r.race_code < cutoff).slice(0, 5);
   });
 
-  const tally = {
-    "◎": { hit: 0, total: 0 },
-    "○": { hit: 0, total: 0 },
-    "▲": { hit: 0, total: 0 },
-    "△": { hit: 0, total: 0 },
-    "穴": { hit: 0, total: 0 },
-  };
-
-  pastReviewRaces.forEach((race) => {
+  racesNeedingCompute.forEach((race) => {
     const futanJuryoList = race.horses.map((h) => h.futanJuryo).filter((v) => Number.isFinite(v));
     const fieldAvgFutanJuryo =
       futanJuryoList.length > 0 ? futanJuryoList.reduce((sum, v) => sum + v, 0) / futanJuryoList.length : null;
@@ -100,6 +137,8 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       ];
       return {
         ...h,
+        base,
+        past: jvPast,
         hasPastData,
         total: total + (bias?.score ?? 0) + (aptitude?.score ?? 0) + (handicap?.score ?? 0) + (training?.score ?? 0),
         applied: [...applied, ...extra],
@@ -107,14 +146,15 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     });
     const byScore = [...scored].sort((a, b) => b.total - a.total);
     const withRank = scored.map((h) => ({ ...h, rank: byScore.findIndex((x) => x.horseId === h.horseId) }));
-    const { marksByNum } = computeMarks(withRank);
+    const { marksByNum, noDifferentiation } = computeMarks(withRank);
 
     withRank.forEach((h) => {
-      const mark = marksByNum[h.num];
-      if (!mark || !tally[mark]) return;
-      tally[mark].total += 1;
-      if (h.result && h.result <= 3) tally[mark].hit += 1;
+      addToTally(tally, marksByNum[h.num], h.result);
     });
+
+    if (!noDifferentiation) {
+      saveSnapshotIfMissing(race.id, withRank, marksByNum).catch(() => {});
+    }
   });
 
   return tally;

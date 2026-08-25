@@ -21,6 +21,7 @@ import { fetchRacePayouts } from "../lib/payoutRepository";
 import { fetchPedigreeAptitude } from "../lib/pedigreeAptitudeRepository";
 import { fetchRecentTrainingWorks } from "../lib/trainingRepository";
 import { fetchPaddockGrades, setPaddockGrade as savePaddockGrade } from "../lib/paddockRepository";
+import { fetchSnapshot, saveSnapshotIfMissing } from "../lib/raceSnapshotRepository";
 import { PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
 
 const PADDOCK_GRADES = ["A", "B", "無印"];
@@ -32,6 +33,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [winPayout, setWinPayout] = useState(null);
   const [pedigreeStatsById, setPedigreeStatsById] = useState({});
   const [trainingByHorse, setTrainingByHorse] = useState({});
+  const [snapshot, setSnapshot] = useState(null);
   const [loadingPast, setLoadingPast] = useState(true);
   const [sortMode, setSortMode] = useState("score"); // score | waku
 
@@ -49,27 +51,53 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
       .sort((a, b) => (a.raceNumber ?? 0) - (b.raceNumber ?? 0));
   }, [races, race]);
 
+  // ロジック変更をしても過去レースの印・評価が遡って変わらないよう、結果確定済みのレースは
+  // まずスナップショット(最初に計算された時点の固定結果)を探し、あればそれをそのまま使って
+  // 重い再取得・再計算(過去走/調教/血統/AI生成)を丸ごと省略する。無ければ従来通り計算する。
   useEffect(() => {
     setLoadingPast(true);
-    const horseIds = race.horses.map((h) => h.horseId).filter(Boolean);
-    fetchJvPastRaces(horseIds, race.id).then((jvPast) => {
+    setSnapshot(null);
+    let cancelled = false;
+
+    async function load() {
+      if (race.isPastReview) {
+        const snap = await fetchSnapshot(race.id);
+        if (cancelled) return;
+        if (snap) {
+          setSnapshot(snap);
+          setLoadingPast(false);
+          return;
+        }
+      }
+
+      const horseIds = race.horses.map((h) => h.horseId).filter(Boolean);
+      const [jvPast, pedigree, training] = await Promise.all([
+        fetchJvPastRaces(horseIds, race.id),
+        fetchPedigreeAptitude(race.horses),
+        fetchRecentTrainingWorks(horseIds, race.rawDate),
+      ]);
+      if (cancelled) return;
       setJvPastByHorse(jvPast);
-      fetchAiNotes(race.horses, jvPast).then((notes) => {
-        setNotesByHorse(notes);
-        setLoadingPast(false);
-      });
-    });
+      setPedigreeStatsById(pedigree);
+      setTrainingByHorse(training);
+      const notes = await fetchAiNotes(race.horses, jvPast);
+      if (cancelled) return;
+      setNotesByHorse(notes);
+      setLoadingPast(false);
+    }
+    load();
 
     if (race.isPastReview) {
       fetchRacePayouts(race.id).then(({ win }) => {
-        setWinPayout(win);
+        if (!cancelled) setWinPayout(win);
       });
     } else {
       setWinPayout(null);
     }
 
-    fetchPedigreeAptitude(race.horses).then(setPedigreeStatsById);
-    fetchRecentTrainingWorks(horseIds, race.rawDate).then(setTrainingByHorse);
+    return () => {
+      cancelled = true;
+    };
   }, [race]);
 
   // 自分で入力したパドック評価を読み込む(ログイン中のみ)
@@ -94,6 +122,30 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
 
   // 印などの順位はスコア順に固定し、表示順(スコア順/枠順)とは切り離す
   const scored = useMemo(() => {
+    // スナップショットがあれば、そこに固定された評価をそのまま使う(再計算しない)
+    if (snapshot) {
+      const base = race.horses.map((h) => {
+        const snap = snapshot[h.num];
+        if (!snap) {
+          return { ...h, base: h.base, hasPastData: false, total: h.base, bonus: 0, applied: [], past: [], note: null, _snapshotMark: null };
+        }
+        return {
+          ...h,
+          base: snap.base ?? h.base,
+          past: snap.pastResults,
+          note: snap.aiNote,
+          hasPastData: snap.hasPastData,
+          total: snap.total,
+          bonus: snap.total - (snap.base ?? h.base),
+          applied: snap.applied,
+          _snapshotMark: snap.mark,
+        };
+      });
+      const byScore = [...base].sort((a, b) => b.total - a.total);
+      const rankByHorseId = new Map(byScore.map((h, idx) => [h.horseId, idx]));
+      return base.map((h) => ({ ...h, rank: rankByHorseId.get(h.horseId) }));
+    }
+
     const futanJuryoList = race.horses.map((h) => h.futanJuryo).filter((v) => Number.isFinite(v));
     const fieldAvgFutanJuryo =
       futanJuryoList.length > 0 ? futanJuryoList.reduce((sum, v) => sum + v, 0) / futanJuryoList.length : null;
@@ -150,12 +202,29 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     const byScore = [...base].sort((a, b) => b.total - a.total);
     const rankByHorseId = new Map(byScore.map((h, idx) => [h.horseId, idx]));
     return base.map((h) => ({ ...h, rank: rankByHorseId.get(h.horseId) }));
-  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum, pedigreeStatsById, trainingByHorse]);
+  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum, pedigreeStatsById, trainingByHorse, snapshot]);
 
   // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
   // 紛らわしいため印・強調表示を出さない。読み込み中も未確定の印を出さない。
-  const computedMarks = useMemo(() => computeMarks(scored), [scored]);
+  // スナップショットがある場合は、そこに固定された印をそのまま使う。
+  const computedMarks = useMemo(() => {
+    if (snapshot) {
+      const marksByNum = {};
+      scored.forEach((h) => {
+        if (h._snapshotMark) marksByNum[h.num] = h._snapshotMark;
+      });
+      return { marksByNum, noDifferentiation: false };
+    }
+    return computeMarks(scored);
+  }, [scored, snapshot]);
   const marksByNum = loadingPast ? {} : computedMarks.marksByNum;
+
+  // 結果確定済み・スナップショット無し・印が計算できた時だけ、今回の計算結果を
+  // 「最初の固定結果」として保存する(以降はロジックを変えてもこのレースの印は変わらない)。
+  useEffect(() => {
+    if (!race.isPastReview || snapshot || loadingPast || computedMarks.noDifferentiation) return;
+    saveSnapshotIfMissing(race.id, scored, computedMarks.marksByNum).catch(() => {});
+  }, [race.id, race.isPastReview, snapshot, loadingPast, computedMarks, scored]);
 
   const displayList = useMemo(() => {
     if (sortMode === "waku") {
