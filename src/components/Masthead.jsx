@@ -10,7 +10,7 @@ export default function Masthead({ raceCount, userEmail, onLogout }) {
             <img
               src={mascotMain}
               alt="へなちょこ産駒"
-              className="w-9 h-9 rounded-full shrink-0"
+              className="w-14 h-14 rounded-full shrink-0"
               style={{ border: `1.5px solid ${PAPER}` }}
             />
             <h1

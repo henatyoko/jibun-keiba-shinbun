@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import GradeChip from "./GradeChip";
 import { computeMarkAccuracy } from "../lib/markAccuracyRepository";
-import { PAPER_CARD, INK, RED, MUTED } from "../lib/colors";
+import { PAPER, PAPER_CARD, INK, RED, MUTED } from "../lib/colors";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -92,9 +92,9 @@ export default function RaceList({ races, attrRules, trendRules, onSelect }) {
               onClick={() => setDate(d)}
               className="px-3 py-1.5 text-sm font-semibold shrink-0"
               style={{
-                background: date === d ? "#A9342A" : "transparent",
-                color: date === d ? "#F1E9D8" : INK,
-                border: `1px solid ${date === d ? "#A9342A" : MUTED}`,
+                background: date === d ? RED : "transparent",
+                color: date === d ? PAPER : INK,
+                border: `1px solid ${date === d ? RED : MUTED}`,
                 fontFamily: "'Shippori Mincho', serif",
               }}
             >
@@ -112,7 +112,7 @@ export default function RaceList({ races, attrRules, trendRules, onSelect }) {
             className="px-3 py-1.5 text-sm font-semibold"
             style={{
               background: INK,
-              color: "#F1E9D8",
+              color: PAPER,
               border: `1px solid ${INK}`,
               fontFamily: "'Shippori Mincho', serif",
             }}
