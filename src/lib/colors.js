@@ -1,10 +1,11 @@
-// レトロ新聞風カラートークン
-export const PAPER = "#F1E9D8";
-export const PAPER_CARD = "#F8F2E4";
+// レトロ新聞風カラートークン(マスコット「へなちょこ産駒」の配色に寄せている)
+export const PAPER = "#FBF6E8";
+export const PAPER_CARD = "#FFFDF6";
 export const INK = "#2B2622";
-export const RED = "#A9342A";
+export const RED = "#D97757";
 export const MUTED = "#7A7166";
 export const LINE = "#2B2622";
+export const MINT = "#BED9C1";
 
 // 予想印(競馬新聞の伝統的な記号)
 export const MARKS = ["◎", "○", "▲", "△", "穴"];

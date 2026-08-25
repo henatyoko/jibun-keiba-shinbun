@@ -1,16 +1,25 @@
 import { PAPER, INK } from "../lib/colors";
+import mascotMain from "../assets/mascot/mascot-main.png";
 
 export default function Masthead({ raceCount, userEmail, onLogout }) {
   return (
     <div className="sticky top-0 z-10" style={{ background: INK, borderBottom: `3px double ${PAPER}` }}>
       <div className="max-w-md mx-auto px-4 pt-4 pb-2">
         <div className="flex items-center justify-between">
-          <h1
-            className="text-2xl font-black tracking-wide"
-            style={{ color: PAPER, fontFamily: "'Shippori Mincho', serif" }}
-          >
-            じぶん競馬新聞
-          </h1>
+          <div className="flex items-center gap-2">
+            <img
+              src={mascotMain}
+              alt="へなちょこ産駒"
+              className="w-9 h-9 rounded-full shrink-0"
+              style={{ border: `1.5px solid ${PAPER}` }}
+            />
+            <h1
+              className="text-2xl font-black tracking-wide"
+              style={{ color: PAPER, fontFamily: "'Shippori Mincho', serif" }}
+            >
+              じぶん競馬新聞
+            </h1>
+          </div>
           <span className="text-[0.625rem]" style={{ color: PAPER, opacity: 0.7, fontFamily: "'Shippori Mincho', serif" }}>
             号外
           </span>
