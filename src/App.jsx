@@ -15,7 +15,7 @@ import {
   deleteTrendRule,
 } from "./lib/rulesRepository";
 import { supabase, isSupabaseConfigured } from "./lib/supabaseClient";
-import { PAPER, INK, RED, MINT } from "./lib/colors";
+import { PAPER, INK, MINT } from "./lib/colors";
 
 export default function App() {
   const [tab, setTab] = useState("race");
@@ -188,15 +188,20 @@ export default function App() {
                 setTab(t.key);
                 setSelectedRace(null);
               }}
-              className="flex-1 flex flex-col items-center gap-0.5 py-2.5"
+              className="flex-1 flex flex-col items-center gap-0.5 py-2"
             >
-              <t.icon size={18} color={tab === t.key ? RED : INK} style={{ opacity: tab === t.key ? 1 : 0.6 }} />
-              <span
-                className="text-[0.625rem] font-semibold"
-                style={{ color: tab === t.key ? RED : INK, opacity: tab === t.key ? 1 : 0.6, fontFamily: "'Shippori Mincho', serif" }}
+              <div
+                className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-full"
+                style={{ background: tab === t.key ? PAPER : "transparent" }}
               >
-                {t.label}
-              </span>
+                <t.icon size={18} color={INK} style={{ opacity: tab === t.key ? 1 : 0.55 }} />
+                <span
+                  className="text-[0.625rem] font-semibold"
+                  style={{ color: INK, opacity: tab === t.key ? 1 : 0.55, fontFamily: "'Shippori Mincho', serif" }}
+                >
+                  {t.label}
+                </span>
+              </div>
             </button>
           ))}
         </div>
