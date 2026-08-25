@@ -20,7 +20,7 @@ export default function Masthead({ raceCount, userEmail, onLogout }) {
               >
                 じぶん競馬新聞
               </h1>
-              <div className="text-[0.625rem]" style={{ color: INK, opacity: 0.7 }}>
+              <div className="text-[0.625rem] ml-0.5" style={{ color: INK, opacity: 0.7 }}>
                 My知見反映版・第{raceCount}競走号
               </div>
             </div>

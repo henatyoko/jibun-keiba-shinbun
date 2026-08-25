@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import GradeChip from "./GradeChip";
 import WakuBadge from "./WakuBadge";
 import {
@@ -41,18 +41,12 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     setSortMode("score");
   }, [race.id]);
 
-  // 同じ開催日・同じ競馬場のレースをレース番号順に並べ、前後移動・プルダウン移動に使う。
-  const { prevRace, nextRace, siblingRaces } = useMemo(() => {
-    if (!races) return { prevRace: null, nextRace: null, siblingRaces: [] };
-    const siblings = races
+  // 同じ開催日・同じ競馬場のレースをレース番号順に並べ、プルダウン移動に使う。
+  const siblingRaces = useMemo(() => {
+    if (!races) return [];
+    return races
       .filter((r) => r.place === race.place && r.rawDate === race.rawDate)
       .sort((a, b) => (a.raceNumber ?? 0) - (b.raceNumber ?? 0));
-    const idx = siblings.findIndex((r) => r.id === race.id);
-    return {
-      prevRace: idx > 0 ? siblings[idx - 1] : null,
-      nextRace: idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : null,
-      siblingRaces: siblings,
-    };
   }, [races, race]);
 
   useEffect(() => {
@@ -189,20 +183,12 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold active:opacity-70 transition-opacity"
-          style={{ color: PAPER_CARD, background: RED, border: `1px solid ${RED}` }}
+          style={{ color: INK, background: PAPER_CARD, border: `1px solid ${INK}` }}
         >
           <ChevronLeft size={18} />
           レース一覧に戻る
         </button>
         <div className="flex-1" />
-        <button
-          onClick={() => prevRace && onNavigate(prevRace)}
-          disabled={!prevRace}
-          className="flex items-center px-2 py-2 text-sm font-bold active:opacity-70 transition-opacity disabled:opacity-30"
-          style={{ color: INK, border: `1px solid ${INK}` }}
-        >
-          <ChevronLeft size={18} />
-        </button>
         {siblingRaces.length > 1 && (
           <select
             value={race.id}
@@ -220,14 +206,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
             ))}
           </select>
         )}
-        <button
-          onClick={() => nextRace && onNavigate(nextRace)}
-          disabled={!nextRace}
-          className="flex items-center px-2 py-2 text-sm font-bold active:opacity-70 transition-opacity disabled:opacity-30"
-          style={{ color: INK, border: `1px solid ${INK}` }}
-        >
-          <ChevronRight size={18} />
-        </button>
       </div>
       <div className="flex items-center gap-2 mb-1">
         <GradeChip grade={race.grade} />
