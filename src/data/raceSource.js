@@ -64,6 +64,55 @@ export async function fetchRaces() {
   return assembleRaces(pastRows, true);
 }
 
+// 指定した開催日(YYYYMMDD)のレースを振り返り表示用に取得する(過去レース一覧から使う)。
+export async function fetchRacesByDate(dayPrefix) {
+  if (!isSupabaseConfigured) return MOCK_RACES;
+  const { data: rows, error } = await supabase
+    .from("race_shosai")
+    .select(RACE_SHOSAI_COLUMNS)
+    .gte("race_code", `${dayPrefix}0000000000`)
+    .lt("race_code", `${dayPrefix}9999999999`)
+    .order("race_code", { ascending: true });
+  if (error || !rows || rows.length === 0) return [];
+  return assembleRaces(rows, true);
+}
+
+// 直近の開催日(土日ペア)を新しい順にまとめて返す。過去レース一覧のトップに使う。
+// 1日あたりのレース数が少ない日(特別登録馬先行データ等で紛れ込む断片)は除外する。
+export async function fetchPastMeetingDays(limit = 12) {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from("race_shosai")
+    .select("race_code, kaisai_nen, kaisai_gappi, keibajo_code")
+    .order("race_code", { ascending: false })
+    .limit(2000);
+  if (error || !data) return [];
+
+  const byDay = {};
+  data.forEach((r) => {
+    const day = `${r.kaisai_nen}${r.kaisai_gappi}`;
+    (byDay[day] ||= { day, rawDate: `${r.kaisai_nen}-${r.kaisai_gappi.slice(0, 2)}-${r.kaisai_gappi.slice(2, 4)}`, raceCount: 0, places: new Set() });
+    byDay[day].raceCount += 1;
+    byDay[day].places.add(r.keibajo_code);
+  });
+
+  return Object.values(byDay)
+    .filter((d) => d.raceCount >= 20)
+    .sort((a, b) => (a.day < b.day ? 1 : -1))
+    .slice(0, limit)
+    .map((d) => ({ day: d.day, rawDate: d.rawDate, raceCount: d.raceCount, placeCount: d.places.size }));
+}
+
+// レース一覧(App側で保持している直近分)に無い場合のフォールバック。race_codeの先頭8桁から
+// 開催日を割り出し、その日の全レース(前後のレース移動プルダウン用)ごと取得する。
+export async function fetchRaceWithSiblings(raceId) {
+  if (!raceId || raceId.length < 8) return { race: null, siblings: [] };
+  const dayPrefix = raceId.slice(0, 8);
+  const races = await fetchRacesByDate(dayPrefix);
+  const race = races.find((r) => r.id === raceId) || null;
+  return { race, siblings: races };
+}
+
 // 対象レースが多い(複数場・複数日開催)とSupabase/PostgRESTの1回あたりの上限(既定1000件)を
 // 超えることがあるため、.range()でページングして全件取得する。
 async function fetchAllRows(table, columns, filterFn) {

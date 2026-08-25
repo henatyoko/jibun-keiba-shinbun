@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from "react-router-dom";
-import { Flag, Sparkles } from "lucide-react";
+import { Flag, Sparkles, History } from "lucide-react";
 import Masthead from "./components/Masthead";
 import RaceList from "./components/RaceList";
 import RaceDetail from "./components/RaceDetail";
 import RuleForm from "./components/RuleForm";
 import AuthScreen from "./components/AuthScreen";
 import ResetPasswordForm from "./components/ResetPasswordForm";
-import { fetchRaces } from "./data/raceSource";
+import PastMeetingList from "./components/PastMeetingList";
+import { fetchRaces, fetchRacesByDate, fetchRaceWithSiblings } from "./data/raceSource";
 import {
   fetchRules,
   insertAttrRule,
@@ -18,35 +19,87 @@ import {
 import { supabase, isSupabaseConfigured } from "./lib/supabaseClient";
 import { PAPER, INK, MINT } from "./lib/colors";
 
+function LoadingOverlay() {
+  return (
+    <div className="fixed inset-0 z-[5] flex flex-col items-center justify-center gap-2" style={{ background: "rgba(241, 233, 216, 0.9)" }}>
+      <div className="horse-run-track">
+        <span>🐎</span>
+      </div>
+      <p className="text-xs" style={{ color: INK }}>
+        レース情報を取得中…
+      </p>
+    </div>
+  );
+}
+
+// 開催日ページ(/history/:day)。過去レース一覧から選んだ1日分のレースを取得して表示する。
+function HistoryDayRoute({ attrRules, trendRules }) {
+  const { day } = useParams();
+  const navigate = useNavigate();
+  const [races, setRaces] = useState(null);
+
+  useEffect(() => {
+    setRaces(null);
+    fetchRacesByDate(day).then(setRaces);
+  }, [day]);
+
+  if (races === null) return <LoadingOverlay />;
+  return <RaceList races={races} attrRules={attrRules} trendRules={trendRules} onSelect={(r) => navigate(`/races/${r.id}`)} />;
+}
+
+// レース詳細ページ(/races/:raceId)。App側で保持している直近分に無ければ、
+// race_codeの日付からその日のレース一式を取得するフォールバックを行う
+// (過去レース一覧から辿った古いレースもこの同じルートで開けるようにするため)。
 function RaceDetailRoute({ races, racesLoading, attrRules, trendRules, userId }) {
   const { raceId } = useParams();
   const navigate = useNavigate();
-  const race = races.find((r) => r.id === raceId);
+  const [fallback, setFallback] = useState({ status: "idle", race: null, siblings: [] });
 
-  if (!race) {
-    if (racesLoading) {
-      return (
-        <div className="fixed inset-0 z-[5] flex flex-col items-center justify-center gap-2" style={{ background: "rgba(241, 233, 216, 0.9)" }}>
-          <div className="horse-run-track">
-            <span>🐎</span>
-          </div>
-          <p className="text-xs" style={{ color: INK }}>
-            レース情報を取得中…
-          </p>
-        </div>
-      );
-    }
+  const raceInMain = races.find((r) => r.id === raceId);
+
+  useEffect(() => {
+    if (raceInMain || racesLoading) return;
+    let cancelled = false;
+    setFallback({ status: "loading", race: null, siblings: [] });
+    fetchRaceWithSiblings(raceId).then(({ race, siblings }) => {
+      if (cancelled) return;
+      setFallback({ status: "done", race, siblings });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [raceId, raceInMain, racesLoading]);
+
+  if (raceInMain) {
+    return (
+      <RaceDetail
+        race={raceInMain}
+        races={races}
+        attrRules={attrRules}
+        trendRules={trendRules}
+        userId={userId}
+        onBack={() => navigate("/")}
+        onNavigate={(r) => navigate(`/races/${r.id}`)}
+      />
+    );
+  }
+
+  if (racesLoading || fallback.status === "idle" || fallback.status === "loading") {
+    return <LoadingOverlay />;
+  }
+
+  if (!fallback.race) {
     return <Navigate to="/" replace />;
   }
 
   return (
     <RaceDetail
-      race={race}
-      races={races}
+      race={fallback.race}
+      races={fallback.siblings}
       attrRules={attrRules}
       trendRules={trendRules}
       userId={userId}
-      onBack={() => navigate("/")}
+      onBack={() => navigate(`/history/${raceId.slice(0, 8)}`)}
       onNavigate={(r) => navigate(`/races/${r.id}`)}
     />
   );
@@ -157,7 +210,11 @@ export default function App() {
     return <ResetPasswordForm onDone={() => setPasswordRecovery(false)} />;
   }
 
-  const activeTab = location.pathname.startsWith("/rules") ? "rules" : "race";
+  const activeTab = location.pathname.startsWith("/rules")
+    ? "rules"
+    : location.pathname.startsWith("/history")
+      ? "history"
+      : "race";
 
   return (
     <div className="min-h-screen relative" style={{ background: PAPER, fontFamily: "'Zen Old Mincho','Shippori Mincho',serif" }}>
@@ -198,6 +255,11 @@ export default function App() {
               />
             }
           />
+          <Route path="/history" element={<PastMeetingList />} />
+          <Route
+            path="/history/:day"
+            element={<HistoryDayRoute attrRules={attrRules} trendRules={trendRules} />}
+          />
           <Route
             path="/rules"
             element={
@@ -229,6 +291,7 @@ export default function App() {
         <div className="max-w-md mx-auto flex">
           {[
             { key: "race", label: "レース", icon: Flag, path: "/" },
+            { key: "history", label: "過去レース", icon: History, path: "/history" },
             { key: "rules", label: "知見登録", icon: Sparkles, path: "/rules" },
           ].map((t) => (
             <button
