@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ChevronDown } from "lucide-react";
 import GradeChip from "./GradeChip";
 import { computeMarkAccuracy } from "../lib/markAccuracyRepository";
 import { PAPER, PAPER_CARD, INK, RED, MUTED } from "../lib/colors";
@@ -105,11 +105,11 @@ export default function RaceList({ races, attrRules, trendRules, onSelect }) {
       )}
 
       {places.length > 1 && (
-        <div className="mb-4">
+        <div className="mb-4 relative inline-block">
           <select
             value={place ?? ""}
             onChange={(e) => setPlace(e.target.value)}
-            className="px-3 py-1.5 text-sm font-semibold"
+            className="appearance-none pl-3 pr-8 py-1.5 text-sm font-semibold"
             style={{
               background: INK,
               color: PAPER,
@@ -123,6 +123,7 @@ export default function RaceList({ races, attrRules, trendRules, onSelect }) {
               </option>
             ))}
           </select>
+          <ChevronDown size={16} color={PAPER} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
         </div>
       )}
 
