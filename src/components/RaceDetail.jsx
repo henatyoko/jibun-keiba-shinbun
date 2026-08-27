@@ -261,7 +261,9 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   // 何も起きたように見えなくなる(実際にユーザーから「押しても反応が無い」と報告あり)ため、
   // まずテキストを画面上のパネルに必ず表示し、共有・コピーはそこからの追加手段にする。
   const handleShareResult = () => {
-    const markedHorses = MARKS.map((m) => scored.find((h) => marksByHorseId[h.horseId] === m)).filter(Boolean);
+    // △・穴は複数頭に付くことがあるため、印ごとに1頭だけ拾う.find()ではなく
+    // 該当する馬を全員拾う.filter()を使う(◎○▲△穴の順序は維持)。
+    const markedHorses = MARKS.flatMap((m) => scored.filter((h) => marksByHorseId[h.horseId] === m));
     const lines = race.isPastReview
       ? markedHorses.map((h) => `${marksByHorseId[h.horseId]} ${h.name} ${h.result ? `${h.result}着` : "着外"}`)
       : markedHorses.map((h) => `${marksByHorseId[h.horseId]} ${h.name}`);
