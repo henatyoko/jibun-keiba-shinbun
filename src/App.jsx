@@ -19,6 +19,27 @@ import {
 import { supabase, isSupabaseConfigured } from "./lib/supabaseClient";
 import { PAPER, INK, MINT } from "./lib/colors";
 
+// レース一覧の初回表示を速くするため、前回取得した内容をlocalStorageに残しておき、
+// 次回起動時はまずそれを即表示しつつ裏で最新データに取り直す(stale-while-revalidate)。
+const RACES_CACHE_KEY = "jks_races_cache_v1";
+
+function loadCachedRaces() {
+  try {
+    const raw = localStorage.getItem(RACES_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedRaces(races) {
+  try {
+    localStorage.setItem(RACES_CACHE_KEY, JSON.stringify(races));
+  } catch {
+    // 容量超過・プライベートモード等は無視してよい
+  }
+}
+
 function LoadingOverlay() {
   return (
     <div className="fixed inset-0 z-[5] flex flex-col items-center justify-center gap-2" style={{ background: "rgba(241, 233, 216, 0.9)" }}>
@@ -44,7 +65,15 @@ function HistoryDayRoute({ attrRules, trendRules }) {
   }, [day]);
 
   if (races === null) return <LoadingOverlay />;
-  return <RaceList races={races} attrRules={attrRules} trendRules={trendRules} onSelect={(r) => navigate(`/races/${r.id}`)} />;
+  return (
+    <RaceList
+      races={races}
+      attrRules={attrRules}
+      trendRules={trendRules}
+      showFallbackNotice={false}
+      onSelect={(r) => navigate(`/races/${r.id}`)}
+    />
+  );
 }
 
 // レース詳細ページ(/races/:raceId)。App側で保持している直近分に無ければ、
@@ -106,8 +135,8 @@ function RaceDetailRoute({ races, racesLoading, attrRules, trendRules, userId })
 }
 
 export default function App() {
-  const [races, setRaces] = useState([]);
-  const [racesLoading, setRacesLoading] = useState(true);
+  const [races, setRaces] = useState(() => loadCachedRaces() ?? []);
+  const [racesLoading, setRacesLoading] = useState(() => loadCachedRaces() === null);
   const [attrRules, setAttrRules] = useState([]);
   const [trendRules, setTrendRules] = useState([]);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
@@ -142,6 +171,7 @@ export default function App() {
     fetchRaces().then((r) => {
       setRaces(r);
       setRacesLoading(false);
+      if (isSupabaseConfigured && r.length > 0) saveCachedRaces(r);
     });
   }, []);
 

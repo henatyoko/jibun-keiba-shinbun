@@ -81,9 +81,12 @@ export async function fetchRacesByDate(dayPrefix) {
 // 1日あたりのレース数が少ない日(特別登録馬先行データ等で紛れ込む断片)は除外する。
 export async function fetchPastMeetingDays(limit = 12) {
   if (!isSupabaseConfigured) return [];
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
   const { data, error } = await supabase
     .from("race_shosai")
     .select("race_code, kaisai_nen, kaisai_gappi, keibajo_code")
+    .lt("race_code", `${todayStr}0000000000`)
     .order("race_code", { ascending: false })
     .limit(2000);
   if (error || !data) return [];
@@ -130,6 +133,15 @@ async function fetchAllRows(table, columns, filterFn) {
 
 async function assembleRaces(raceRows, isPastReview) {
   const raceCodes = raceRows.map((r) => r.race_code);
+
+  // umagoto_race_joho(SE)のtansho_odds/tansho_ninkijunはレース確定後に埋まる確定オッズのため、
+  // レース前は仕様上ずっと未確定("0000")のまま。レース前のオッズはodds1_tansho(時系列オッズ)側にしか
+  // 無いので、そちらの最新スナップショットを優先して使う。
+  // このオッズ取得はrace_codeだけで完結し馬柱データに依存しないため、並行して走らせる。
+  const oddsPromise = fetchAllRows("odds1_tansho", "race_code, umaban, odds, ninki, insert_timestamp", (q) =>
+    q.in("race_code", raceCodes).order("insert_timestamp", { ascending: false })
+  );
+
   const { rows: entryRows, error: entryError } = await fetchAllRows(
     "umagoto_race_joho",
     "race_code, umaban, wakuban, ketto_toroku_bango, bamei, kishumei_ryakusho, chokyoshimei_ryakusho, banushimei_hojinkaku_nashi, barei, kakutei_chakujun, tansho_odds, tansho_ninkijun, futan_juryo",
@@ -138,23 +150,21 @@ async function assembleRaces(raceRows, isPastReview) {
 
   if (entryError) return MOCK_RACES;
 
-  // umagoto_race_joho(SE)のtansho_odds/tansho_ninkijunはレース確定後に埋まる確定オッズのため、
-  // レース前は仕様上ずっと未確定("0000")のまま。レース前のオッズはodds1_tansho(時系列オッズ)側にしか
-  // 無いので、そちらの最新スナップショットを優先して使う。
-  const { rows: oddsRows } = await fetchAllRows("odds1_tansho", "race_code, umaban, odds, ninki, insert_timestamp", (q) =>
-    q.in("race_code", raceCodes).order("insert_timestamp", { ascending: false })
-  );
+  const horseIds = [...new Set((entryRows || []).map((e) => e.ketto_toroku_bango))];
+
+  const [{ rows: oddsRows }, { data: sireRows }] = await Promise.all([
+    oddsPromise,
+    supabase
+      .from("kyosoba_master2")
+      .select(`ketto_toroku_bango, ketto1_bamei, ketto1_hanshoku_toroku_bango, ketto5_hanshoku_toroku_bango, ${DISTANCE_BUCKET_COLUMNS}`)
+      .in("ketto_toroku_bango", horseIds),
+  ]);
+
   const latestOddsByKey = {};
   (oddsRows || []).forEach((o) => {
     const key = `${o.race_code}_${o.umaban}`;
     if (!(key in latestOddsByKey)) latestOddsByKey[key] = o;
   });
-
-  const horseIds = [...new Set((entryRows || []).map((e) => e.ketto_toroku_bango))];
-  const { data: sireRows } = await supabase
-    .from("kyosoba_master2")
-    .select(`ketto_toroku_bango, ketto1_bamei, ketto1_hanshoku_toroku_bango, ketto5_hanshoku_toroku_bango, ${DISTANCE_BUCKET_COLUMNS}`)
-    .in("ketto_toroku_bango", horseIds);
   const sireByHorseId = Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, s.ketto1_bamei]));
   const distanceStatsByHorseId = Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, extractDistanceStats(s)]));
   const pedigreeIdsByHorseId = Object.fromEntries(

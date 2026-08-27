@@ -11,7 +11,7 @@ function formatDateLabel(rawDate) {
   return `${d.getMonth() + 1}/${d.getDate()}(${WEEKDAYS[d.getDay()]})`;
 }
 
-export default function RaceList({ races, attrRules, trendRules, onSelect }) {
+export default function RaceList({ races, attrRules, trendRules, onSelect, showFallbackNotice = true }) {
   const dates = [...new Set(races.map((r) => r.rawDate).filter(Boolean))].sort();
   const [date, setDate] = useState(dates[0] ?? null);
   const [markAccuracy, setMarkAccuracy] = useState(null);
@@ -56,7 +56,7 @@ export default function RaceList({ races, attrRules, trendRules, onSelect }) {
         あなたの知見を反映した予想スコアで表示
       </p>
 
-      {races[0]?.isPastReview && (
+      {showFallbackNotice && races[0]?.isPastReview && (
         <div className="mb-3 px-3 py-2 text-xs" style={{ background: PAPER_CARD, border: `1px solid ${MUTED}`, color: MUTED }}>
           次の開催データがまだ取り込まれていないため、直近開催(
           {dates.length > 1 ? `${formatDateLabel(dates[0])}〜${formatDateLabel(dates[dates.length - 1])}` : formatDateLabel(dates[0])}
