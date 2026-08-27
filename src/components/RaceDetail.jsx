@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Share2 } from "lucide-react";
 import GradeChip from "./GradeChip";
 import WakuBadge from "./WakuBadge";
 import {
@@ -36,6 +36,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [snapshot, setSnapshot] = useState(null);
   const [loadingPast, setLoadingPast] = useState(true);
   const [sortMode, setSortMode] = useState("score"); // score | waku
+  const [shareCopied, setShareCopied] = useState(false);
 
   // レースが切り替わった時、前のレースでのスクロール位置や並び順を引き継がない
   useEffect(() => {
@@ -246,6 +247,37 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     return suggestBettingPattern(scored);
   }, [scored, loadingPast, computedMarks.noDifferentiation]);
 
+  const handleShareResult = async () => {
+    const markedHorses = MARKS.map((m) => scored.find((h) => marksByNum[h.num] === m)).filter(Boolean);
+    const hitCount = markedHorses.filter((h) => h.result && h.result <= 3).length;
+    const text = [
+      "🐴 じぶん競馬新聞",
+      `${race.place}${race.raceNumber ? `${race.raceNumber}R` : ""} ${race.name}(${race.date})`,
+      "",
+      ...markedHorses.map((h) => `${marksByNum[h.num]} ${h.name} ${h.result ? `${h.result}着` : "着外"}`),
+      "",
+      `印${markedHorses.length}頭中${hitCount}頭が3位以内`,
+    ].join("\n");
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ text });
+      } catch {
+        // ユーザーがキャンセルした場合等は何もしない
+      }
+      return;
+    }
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(text);
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+      } catch {
+        // クリップボード権限が無い場合等は何もしない
+      }
+    }
+  };
+
   return (
     <div className="px-4 pt-4 pb-24">
       <div className="flex items-center gap-2 mb-3">
@@ -290,10 +322,20 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
       </p>
       {race.isPastReview && (
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <p className="text-xs px-2 py-1" style={{ color: MUTED, border: `1px dashed ${MUTED}` }}>
             振り返り表示(このレースは終了済みです)
           </p>
+          {!loadingPast && !computedMarks.noDifferentiation && (
+            <button
+              onClick={handleShareResult}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-semibold active:opacity-70 transition-opacity"
+              style={{ color: INK, background: PAPER_CARD, border: `1px solid ${INK}` }}
+            >
+              <Share2 size={12} />
+              {shareCopied ? "コピーしました" : "結果を共有"}
+            </button>
+          )}
         </div>
       )}
       {top3Actual.length > 0 && (
