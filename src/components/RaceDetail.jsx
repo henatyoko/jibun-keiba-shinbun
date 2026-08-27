@@ -22,7 +22,7 @@ import { fetchPedigreeAptitude } from "../lib/pedigreeAptitudeRepository";
 import { fetchRecentTrainingWorks } from "../lib/trainingRepository";
 import { fetchPaddockGrades, setPaddockGrade as savePaddockGrade } from "../lib/paddockRepository";
 import { fetchSnapshot, saveSnapshotIfMissing } from "../lib/raceSnapshotRepository";
-import { PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
+import { PAPER, PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
 
 const PADDOCK_GRADES = ["A", "B", "無印"];
 
@@ -37,11 +37,14 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [loadingPast, setLoadingPast] = useState(true);
   const [sortMode, setSortMode] = useState("score"); // score | waku
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareText, setShareText] = useState(null);
+  const canNativeShare = typeof navigator !== "undefined" && Boolean(navigator.share);
 
   // レースが切り替わった時、前のレースでのスクロール位置や並び順を引き継がない
   useEffect(() => {
     window.scrollTo(0, 0);
     setSortMode("score");
+    setShareText(null);
   }, [race.id]);
 
   // 同じ開催日・同じ競馬場のレースをレース番号順に並べ、プルダウン移動に使う。
@@ -211,14 +214,20 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const computedMarks = useMemo(() => {
     if (snapshot) {
       const marksByNum = {};
+      const marksByHorseId = {};
       scored.forEach((h) => {
-        if (h._snapshotMark) marksByNum[h.num] = h._snapshotMark;
+        if (h._snapshotMark) {
+          marksByNum[h.num] = h._snapshotMark;
+          marksByHorseId[h.horseId] = h._snapshotMark;
+        }
       });
-      return { marksByNum, noDifferentiation: false };
+      return { marksByNum, marksByHorseId, noDifferentiation: false };
     }
     return computeMarks(scored);
   }, [scored, snapshot]);
-  const marksByNum = loadingPast ? {} : computedMarks.marksByNum;
+  // 表示・共有テキストはhorseIdキーで引く(枠番確定前は馬番が全馬"00"で重複するため)。
+  // computedMarks.marksByNum(馬番キー)はスナップショット保存専用に残す。
+  const marksByHorseId = loadingPast ? {} : computedMarks.marksByHorseId;
 
   // 結果確定済み・スナップショット無し・印が計算できた時だけ、今回の計算結果を
   // 「最初の固定結果」として保存する(以降はロジックを変えてもこのレースの印は変わらない)。
@@ -247,34 +256,41 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     return suggestBettingPattern(scored);
   }, [scored, loadingPast, computedMarks.noDifferentiation]);
 
-  const handleShareResult = async () => {
-    const markedHorses = MARKS.map((m) => scored.find((h) => marksByNum[h.num] === m)).filter(Boolean);
-    const hitCount = markedHorses.filter((h) => h.result && h.result <= 3).length;
+  // 印(◎○▲△穴)をテキストにまとめる。結果確定済みなら着順・的中数も添える。
+  // navigator.share/clipboardは環境によって権限や対応状況が違い、失敗すると
+  // 何も起きたように見えなくなる(実際にユーザーから「押しても反応が無い」と報告あり)ため、
+  // まずテキストを画面上のパネルに必ず表示し、共有・コピーはそこからの追加手段にする。
+  const handleShareResult = () => {
+    const markedHorses = MARKS.map((m) => scored.find((h) => marksByHorseId[h.horseId] === m)).filter(Boolean);
+    const lines = race.isPastReview
+      ? markedHorses.map((h) => `${marksByHorseId[h.horseId]} ${h.name} ${h.result ? `${h.result}着` : "着外"}`)
+      : markedHorses.map((h) => `${marksByHorseId[h.horseId]} ${h.name}`);
+    const hitCount = race.isPastReview ? markedHorses.filter((h) => h.result && h.result <= 3).length : null;
     const text = [
       "🐴 じぶん競馬新聞",
       `${race.place}${race.raceNumber ? `${race.raceNumber}R` : ""} ${race.name}(${race.date})`,
       "",
-      ...markedHorses.map((h) => `${marksByNum[h.num]} ${h.name} ${h.result ? `${h.result}着` : "着外"}`),
-      "",
-      `印${markedHorses.length}頭中${hitCount}頭が3位以内`,
+      ...lines,
+      ...(hitCount != null ? ["", `印${markedHorses.length}頭中${hitCount}頭が3位以内`] : []),
     ].join("\n");
+    setShareText(text);
+  };
 
-    if (navigator.share) {
-      try {
-        await navigator.share({ text });
-      } catch {
-        // ユーザーがキャンセルした場合等は何もしない
-      }
-      return;
+  const handleNativeShare = async () => {
+    try {
+      await navigator.share({ text: shareText });
+    } catch {
+      // ユーザーがキャンセルした場合等は何もしない
     }
-    if (navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(text);
-        setShareCopied(true);
-        setTimeout(() => setShareCopied(false), 2000);
-      } catch {
-        // クリップボード権限が無い場合等は何もしない
-      }
+  };
+
+  const handleCopyShareText = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      // クリップボード権限が無い場合は、パネル内のテキストを手動選択してもらう
     }
   };
 
@@ -321,11 +337,13 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         {race.place}
         {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
       </p>
-      {race.isPastReview && (
+      {(race.isPastReview || (!loadingPast && !computedMarks.noDifferentiation)) && (
         <div className="flex flex-wrap items-center gap-2 mb-3">
-          <p className="text-xs px-2 py-1" style={{ color: MUTED, border: `1px dashed ${MUTED}` }}>
-            振り返り表示(このレースは終了済みです)
-          </p>
+          {race.isPastReview && (
+            <p className="text-xs px-2 py-1" style={{ color: MUTED, border: `1px dashed ${MUTED}` }}>
+              振り返り表示(このレースは終了済みです)
+            </p>
+          )}
           {!loadingPast && !computedMarks.noDifferentiation && (
             <button
               onClick={handleShareResult}
@@ -333,15 +351,58 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               style={{ color: INK, background: PAPER_CARD, border: `1px solid ${INK}` }}
             >
               <Share2 size={12} />
-              {shareCopied ? "コピーしました" : "結果を共有"}
+              {race.isPastReview ? "結果を共有" : "予想を共有"}
             </button>
           )}
+        </div>
+      )}
+      {shareText && (
+        <div className="mb-3 p-3" style={{ background: PAPER_CARD, border: `1.5px solid ${INK}` }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold" style={{ color: INK }}>
+              共有テキスト
+            </span>
+            <button
+              onClick={() => setShareText(null)}
+              className="text-xs font-bold px-1.5"
+              style={{ color: MUTED }}
+              aria-label="閉じる"
+            >
+              ×
+            </button>
+          </div>
+          <textarea
+            readOnly
+            value={shareText}
+            rows={6}
+            className="w-full text-xs p-2 mb-2 resize-none"
+            style={{ color: INK, background: PAPER, border: `1px solid ${MUTED}` }}
+            onFocus={(e) => e.target.select()}
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleCopyShareText}
+              className="px-3 py-1.5 text-xs font-semibold active:opacity-70 transition-opacity"
+              style={{ color: INK, background: PAPER_CARD, border: `1px solid ${INK}` }}
+            >
+              {shareCopied ? "コピーしました" : "コピー"}
+            </button>
+            {canNativeShare && (
+              <button
+                onClick={handleNativeShare}
+                className="px-3 py-1.5 text-xs font-semibold active:opacity-70 transition-opacity"
+                style={{ color: PAPER_CARD, background: INK, border: `1px solid ${INK}` }}
+              >
+                アプリで共有
+              </button>
+            )}
+          </div>
         </div>
       )}
       {top3Actual.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
           {top3Actual.map((h) => (
-            <div key={h.num} className="flex items-center gap-1.5 px-2 py-1" style={{ border: `1px solid ${INK}` }}>
+            <div key={h.horseId} className="flex items-center gap-1.5 px-2 py-1" style={{ border: `1px solid ${INK}` }}>
               <span
                 className="font-black text-sm"
                 style={{ color: h.result === 1 ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
@@ -357,7 +418,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                 </span>
               )}
               <span className="text-xs font-bold" style={{ color: MUTED, fontFamily: "'Shippori Mincho', serif" }}>
-                {marksByNum[h.num] || "無印"}
+                {marksByHorseId[h.horseId] || "無印"}
               </span>
             </div>
           ))}
@@ -411,11 +472,11 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         )}
       <div style={{ border: `1.5px solid ${INK}` }}>
         {displayList.map((h, i) => {
-          const mark = marksByNum[h.num] || "";
+          const mark = marksByHorseId[h.horseId] || "";
           const isTop = mark === MARKS[0];
           return (
           <div
-            key={h.num}
+            key={h.horseId}
             className="p-2.5"
             style={{
               background: isTop ? "#F3E4C8" : PAPER_CARD,

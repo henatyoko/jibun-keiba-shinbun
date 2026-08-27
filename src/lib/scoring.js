@@ -216,36 +216,46 @@ export function baseScoreFromPastRaces(pastRaces) {
 const TRIANGLE_THRESHOLD = 3;
 const MAX_TRIANGLE = 4;
 
+// 印はhorseId(ketto_toroku_bango)を内部キーに計算する。枠番確定前(木曜〜金曜昼)は
+// 出走馬の馬番(num)が全馬"00"のまま届くため、numをキーにすると印が衝突して
+// 全馬同じ印になってしまう。horseIdは常に一意なのでこの問題が起きない。
+// marksByNumは確定済みレース(num重複が起きない)向けに従来通りも返す
+// (race_snapshots等、num主キーで保存する既存の仕組みと互換を保つため)。
 export function computeMarks(scored) {
   const noDifferentiation = scored.every((h) => !h.hasPastData && h.applied.length === 0);
-  if (noDifferentiation) return { marksByNum: {}, noDifferentiation };
+  if (noDifferentiation) return { marksByNum: {}, marksByHorseId: {}, noDifferentiation };
 
   const byRank = [...scored].sort((a, b) => a.rank - b.rank);
   const marks = {};
   byRank.slice(0, 3).forEach((h, i) => {
-    marks[h.num] = MARKS[i];
+    marks[h.horseId] = MARKS[i];
   });
   const third = byRank[2];
   if (third) {
     let triangleCount = 0;
     byRank.forEach((h) => {
-      if (marks[h.num] || triangleCount >= MAX_TRIANGLE) return;
+      if (marks[h.horseId] || triangleCount >= MAX_TRIANGLE) return;
       const diff = third.total - h.total;
       if (diff >= 0 && diff <= TRIANGLE_THRESHOLD) {
-        marks[h.num] = MARKS[3];
+        marks[h.horseId] = MARKS[3];
         triangleCount += 1;
       }
     });
   }
-  const anaCandidates = byRank.filter((h) => !marks[h.num] && h.applied.some((a) => a.score > 0));
+  const anaCandidates = byRank.filter((h) => !marks[h.horseId] && h.applied.some((a) => a.score > 0));
   if (anaCandidates.length > 0) {
     const bestTotal = Math.max(...anaCandidates.map((h) => h.total));
     anaCandidates.filter((h) => h.total === bestTotal).forEach((h) => {
-      marks[h.num] = MARKS[4];
+      marks[h.horseId] = MARKS[4];
     });
   }
 
-  return { marksByNum: marks, noDifferentiation: false };
+  const marksByNum = {};
+  byRank.forEach((h) => {
+    if (marks[h.horseId]) marksByNum[h.num] = marks[h.horseId];
+  });
+
+  return { marksByNum, marksByHorseId: marks, noDifferentiation: false };
 }
 
 // 上位馬同士の素点の差(ばらつき)から、大まかな馬券の買い方の方向性を提案する。
