@@ -1,19 +1,24 @@
+import { useNavigate } from "react-router-dom";
 import { PAPER, INK, MINT } from "../lib/colors";
 import mascotMain from "../assets/mascot/mascot-main.png";
 
 export default function Masthead({ raceCount, userEmail, onLogout }) {
+  const navigate = useNavigate();
   return (
     <div className="sticky top-0 z-10" style={{ background: MINT, borderBottom: `3px double ${INK}` }}>
       <div className="max-w-md mx-auto px-4 pt-4 pb-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 active:opacity-70 transition-opacity"
+          >
             <img
               src={mascotMain}
               alt="へなちょこ産駒"
               className="w-14 h-14 rounded-full shrink-0"
               style={{ border: `1.5px solid ${PAPER}` }}
             />
-            <div>
+            <div className="text-left">
               <h1
                 className="text-2xl font-black tracking-wide"
                 style={{ color: INK, fontFamily: "'Shippori Mincho', serif" }}
@@ -24,7 +29,7 @@ export default function Masthead({ raceCount, userEmail, onLogout }) {
                 My知見反映版・第{raceCount}競走号
               </div>
             </div>
-          </div>
+          </button>
           <span className="text-[0.625rem]" style={{ color: INK, opacity: 0.7, fontFamily: "'Shippori Mincho', serif" }}>
             号外
           </span>
