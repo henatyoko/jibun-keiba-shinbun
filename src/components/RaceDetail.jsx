@@ -37,6 +37,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [loadingPast, setLoadingPast] = useState(true);
   const [sortMode, setSortMode] = useState("score"); // score | waku
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareCopyFailed, setShareCopyFailed] = useState(false);
   const [shareText, setShareText] = useState(null);
   const canNativeShare = typeof navigator !== "undefined" && Boolean(navigator.share);
 
@@ -286,14 +287,39 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     }
   };
 
+  // navigator.clipboardは端末・環境(PWA/iOSなど)によって権限が拒否されたり
+  // 使えなかったりし、失敗すると黙ったままボタンが反応していないように見える
+  // (実際にユーザーから報告あり)ため、execCommandへのフォールボック、それも
+  // ダメなら失敗を明示表示する(テキストは既にパネル内で選択・手動コピーできる)。
   const handleCopyShareText = async () => {
     try {
       await navigator.clipboard.writeText(shareText);
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2000);
+      return;
     } catch {
-      // クリップボード権限が無い場合は、パネル内のテキストを手動選択してもらう
+      // Clipboard APIが使えない場合は下のフォールバックへ
     }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = shareText;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      if (ok) {
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+        return;
+      }
+    } catch {
+      // どちらも失敗した場合は下で明示表示する
+    }
+    setShareCopyFailed(true);
+    setTimeout(() => setShareCopyFailed(false), 3000);
   };
 
   return (
@@ -389,6 +415,11 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
             >
               {shareCopied ? "コピーしました" : "コピー"}
             </button>
+            {shareCopyFailed && (
+              <span className="text-xs self-center" style={{ color: RED }}>
+                コピーできませんでした。上のテキストを長押しして選択してください
+              </span>
+            )}
             {canNativeShare && (
               <button
                 onClick={handleNativeShare}
