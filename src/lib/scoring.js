@@ -194,7 +194,8 @@ export function baseScoreFromPastRaces(pastRaces) {
   const agariTimes = pastRaces
     .slice(0, 5)
     .map((r) => Number(r.kohan_3f))
-    .filter((v) => Number.isFinite(v) && v > 0)
+    // v<900: JV-Dataは上がり3Fが未計測の時"999"(=99.9秒)を番兵値として返すため除外する
+    .filter((v) => Number.isFinite(v) && v > 0 && v < 900)
     .map((v) => v / 10); // JV-Dataは0.1秒単位の数値文字列("433"=43.3秒)
   if (agariTimes.length >= 2) {
     const [latest, ...rest] = agariTimes;

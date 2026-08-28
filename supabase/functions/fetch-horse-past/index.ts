@@ -127,13 +127,22 @@ async function generateHorseNote(
   horseName: string,
   pastRaces: PastRace[]
 ): Promise<{ comment: string; scoreAdjustment: number } | null> {
+  // JV-Dataは未確定の値を"00"/"999"のような0埋め・番兵値で表す(着順・人気・上がり3F)。
+  // 素直に文字列の真偽値やNumber()だけで判定すると"00"がtruthyになったり、
+  // 999(=上がり99.9秒、実際にはあり得ない番兵値)がそのまま渡ってしまい、
+  // AIが「0着=1着」のように事実と異なる短評を生成する原因になっていた。
   const raceLines = pastRaces
     .map((r) => {
-      const finish = r.kakutei_chakujun ? `${Number(r.kakutei_chakujun)}着` : "着順不明";
-      const ninki = r.tansho_ninkijun ? `${Number(r.tansho_ninkijun)}番人気` : "人気不明";
-      const kohan3f = r.kohan_3f ? `上がり${(Number(r.kohan_3f) / 10).toFixed(1)}秒` : "";
+      const finishNum = Number(r.kakutei_chakujun);
+      const finish = Number.isFinite(finishNum) && finishNum > 0 ? `${finishNum}着` : "着順不明";
+      const ninkiNum = Number(r.tansho_ninkijun);
+      const ninki = Number.isFinite(ninkiNum) && ninkiNum > 0 ? `${ninkiNum}番人気` : "人気不明";
+      const kohanNum = Number(r.kohan_3f);
+      const kohan3f = Number.isFinite(kohanNum) && kohanNum > 0 && kohanNum < 900 ? `上がり${(kohanNum / 10).toFixed(1)}秒` : "";
+      if (finish === "着順不明" && ninki === "人気不明" && !kohan3f) return null;
       return `${finish}(${ninki})${kohan3f ? " " + kohan3f : ""}`;
     })
+    .filter((line): line is string => line !== null)
     .join("\n");
   const userText = `馬名: ${horseName}\n直近成績(新しい順):\n${raceLines || "データなし"}`;
 
