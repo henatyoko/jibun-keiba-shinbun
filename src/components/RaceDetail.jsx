@@ -364,7 +364,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               key={h.horseId}
               className="font-black"
               style={{
-                fontSize: "1.375rem",
+                fontSize: "1rem",
                 fontFamily: "'Shippori Mincho', serif",
                 color: marksByHorseId[h.horseId] === MARKS[0] ? RED : INK,
               }}
