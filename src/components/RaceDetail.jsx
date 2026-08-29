@@ -266,8 +266,8 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     // 該当する馬を全員拾う.filter()を使う(◎○▲△穴の順序は維持)。
     const markedHorses = MARKS.flatMap((m) => scored.filter((h) => marksByHorseId[h.horseId] === m));
     const lines = race.isPastReview
-      ? markedHorses.map((h) => `${marksByHorseId[h.horseId]} ${h.name} ${h.result ? `${h.result}着` : "着外"}`)
-      : markedHorses.map((h) => `${marksByHorseId[h.horseId]} ${h.name}`);
+      ? markedHorses.map((h) => `${marksByHorseId[h.horseId]}${h.num || "-"} ${h.name} ${h.result ? `${h.result}着` : "着外"}`)
+      : markedHorses.map((h) => `${marksByHorseId[h.horseId]}${h.num || "-"} ${h.name}`);
     const hitCount = race.isPastReview ? markedHorses.filter((h) => h.result && h.result <= 3).length : null;
     const text = [
       "🐴 じぶん競馬新聞",
@@ -365,6 +365,24 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         {race.place}
         {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
       </p>
+      {!loadingPast && !computedMarks.noDifferentiation && (
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3 px-3 py-2" style={{ background: PAPER_CARD, border: `1.5px solid ${INK}` }}>
+          {MARKS.flatMap((m) => scored.filter((h) => marksByHorseId[h.horseId] === m)).map((h) => (
+            <span
+              key={h.horseId}
+              className="font-black"
+              style={{
+                fontSize: "1.375rem",
+                fontFamily: "'Shippori Mincho', serif",
+                color: marksByHorseId[h.horseId] === MARKS[0] ? RED : INK,
+              }}
+            >
+              {marksByHorseId[h.horseId]}
+              {h.num || "-"}
+            </span>
+          ))}
+        </div>
+      )}
       {(race.isPastReview || (!loadingPast && !computedMarks.noDifferentiation)) && (
         <div className="flex flex-wrap items-center gap-2 mb-3">
           {race.isPastReview && (
