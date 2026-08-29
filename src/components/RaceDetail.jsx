@@ -10,7 +10,6 @@ import {
   hasOwnDistanceData,
   pedigreeAptitudeAdjustment,
   handicapWeightAdjustment,
-  trainingAdjustment,
   paddockAdjustment,
   computeMarks,
   suggestBettingPattern,
@@ -19,7 +18,6 @@ import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
 import { fetchAiNotes } from "../lib/aiNotesRepository";
 import { fetchRacePayouts } from "../lib/payoutRepository";
 import { fetchPedigreeAptitude } from "../lib/pedigreeAptitudeRepository";
-import { fetchRecentTrainingWorks } from "../lib/trainingRepository";
 import { fetchPaddockGrades, setPaddockGrade as savePaddockGrade } from "../lib/paddockRepository";
 import { fetchSnapshot, saveSnapshotIfMissing } from "../lib/raceSnapshotRepository";
 import { PAPER, PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
@@ -32,7 +30,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [paddockByNum, setPaddockByNum] = useState({});
   const [winPayout, setWinPayout] = useState(null);
   const [pedigreeStatsById, setPedigreeStatsById] = useState({});
-  const [trainingByHorse, setTrainingByHorse] = useState({});
   const [snapshot, setSnapshot] = useState(null);
   const [loadingPast, setLoadingPast] = useState(true);
   const [sortMode, setSortMode] = useState("score"); // score | waku
@@ -76,15 +73,13 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
       }
 
       const horseIds = race.horses.map((h) => h.horseId).filter(Boolean);
-      const [jvPast, pedigree, training] = await Promise.all([
+      const [jvPast, pedigree] = await Promise.all([
         fetchJvPastRaces(horseIds, race.id),
         fetchPedigreeAptitude(race.horses),
-        fetchRecentTrainingWorks(horseIds, race.rawDate),
       ]);
       if (cancelled) return;
       setJvPastByHorse(jvPast);
       setPedigreeStatsById(pedigree);
-      setTrainingByHorse(training);
       const notes = await fetchAiNotes(race.horses, jvPast);
       if (cancelled) return;
       setNotesByHorse(notes);
@@ -174,22 +169,19 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         const paddockGrade = paddockByNum[h.num];
         const paddock = paddockAdjustment(paddockGrade);
         const handicap = handicapWeightAdjustment(race.isHandicap, h.futanJuryo, fieldAvgFutanJuryo);
-        const training = trainingAdjustment(trainingByHorse[h.horseId]);
         const extra = [
           ...(aiAdjustment !== 0 ? [{ label: "AI評価", score: aiAdjustment }] : []),
           ...(bias ? [{ label: bias.label, score: bias.score }] : []),
           ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
           ...(paddock ? [{ label: paddock.label, score: paddock.score }] : []),
           ...(handicap ? [{ label: handicap.label, score: handicap.score }] : []),
-          ...(training ? [{ label: training.label, score: training.score }] : []),
         ];
         const extraTotal =
           aiAdjustment +
           (bias?.score ?? 0) +
           (aptitude?.score ?? 0) +
           (paddock?.score ?? 0) +
-          (handicap?.score ?? 0) +
-          (training?.score ?? 0);
+          (handicap?.score ?? 0);
         const hasPastData = Boolean(jvPast && jvPast.length > 0);
         return {
           ...h,
@@ -207,7 +199,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     const byScore = [...base].sort((a, b) => b.total - a.total);
     const rankByHorseId = new Map(byScore.map((h, idx) => [h.horseId, idx]));
     return base.map((h) => ({ ...h, rank: rankByHorseId.get(h.horseId) }));
-  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum, pedigreeStatsById, trainingByHorse, snapshot]);
+  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum, pedigreeStatsById, snapshot]);
 
   // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
   // 紛らわしいため印・強調表示を出さない。読み込み中も未確定の印を出さない。

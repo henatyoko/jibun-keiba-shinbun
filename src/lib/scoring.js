@@ -95,20 +95,6 @@ export function pedigreeAptitudeAdjustment(sireStats, damsireStats, distanceStr)
   return { label: `血統距離適性${bucket.surfaceLabel}${top3}/${starts}`, score };
 }
 
-// 直近の調教(坂路・ウッドチップ)の後3ハロンタイムを、他馬とではなくその馬自身の
-// 過去の調教タイムと比較する(自己ベース比較)。コースやその日の馬場状態で絶対タイムは
-// 大きく変わるため、絶対値ではなく自分自身との相対的な速い/遅いだけを見る。
-// 直近1本+比較対象1本以上(計2本以上)無ければ判断しない。
-export function trainingAdjustment(works) {
-  if (!works || works.length < 2) return null;
-  const [latest, ...rest] = works;
-  const restAvg = rest.reduce((sum, w) => sum + w.time3f, 0) / rest.length;
-  const improve = restAvg - latest.time3f; // 正なら直近の方が速い(良化)
-  const score = Math.max(-2, Math.min(2, Math.round(improve * 2)));
-  if (score === 0) return null;
-  return { label: `調教${latest.time3f.toFixed(1)}秒`, score };
-}
-
 // パドックで実際に見た印象(ユーザー自身の入力)による小さな補正。
 const PADDOCK_SCORE = { A: 3, B: 1, 無印: -2 };
 

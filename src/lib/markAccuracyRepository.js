@@ -5,10 +5,8 @@ import {
   courseBiasAdjustment,
   distanceAptitudeAdjustment,
   handicapWeightAdjustment,
-  trainingAdjustment,
   computeMarks,
 } from "./scoring";
-import { fetchRecentTrainingWorks } from "./trainingRepository";
 import { saveSnapshotIfMissing } from "./raceSnapshotRepository";
 
 function emptyTally() {
@@ -103,8 +101,6 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     if (page.length < PAGE_SIZE) break;
   }
 
-  const trainingByHorse = await fetchRecentTrainingWorks(horseIds, racesNeedingCompute[0].rawDate);
-
   const rowsByHorse = {};
   data.forEach((row) => {
     (rowsByHorse[row.ketto_toroku_bango] ||= []).push(row);
@@ -128,19 +124,17 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       const bias = courseBiasAdjustment(h.waku, race.place, race.distance);
       const aptitude = distanceAptitudeAdjustment(h.distanceStats, race.distance);
       const handicap = handicapWeightAdjustment(race.isHandicap, h.futanJuryo, fieldAvgFutanJuryo);
-      const training = trainingAdjustment(trainingByHorse[h.horseId]);
       const extra = [
         ...(bias ? [{ label: bias.label, score: bias.score }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
         ...(handicap ? [{ label: handicap.label, score: handicap.score }] : []),
-        ...(training ? [{ label: training.label, score: training.score }] : []),
       ];
       return {
         ...h,
         base,
         past: jvPast,
         hasPastData,
-        total: total + (bias?.score ?? 0) + (aptitude?.score ?? 0) + (handicap?.score ?? 0) + (training?.score ?? 0),
+        total: total + (bias?.score ?? 0) + (aptitude?.score ?? 0) + (handicap?.score ?? 0),
         applied: [...applied, ...extra],
       };
     });
