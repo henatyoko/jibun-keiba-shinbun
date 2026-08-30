@@ -244,10 +244,12 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
       .sort((a, b) => a.result - b.result);
   }, [scored, race.isPastReview]);
 
+  // 過去レース(振り返り)は結果が確定済みで馬券の買い方提案が意味を持たないため、
+  // 未来のレースの時だけ出す。
   const bettingSuggestion = useMemo(() => {
-    if (loadingPast || computedMarks.noDifferentiation) return null;
+    if (race.isPastReview || loadingPast || computedMarks.noDifferentiation) return null;
     return suggestBettingPattern(scored);
-  }, [scored, loadingPast, computedMarks.noDifferentiation]);
+  }, [race.isPastReview, scored, loadingPast, computedMarks.noDifferentiation]);
 
   // 印(◎○▲△穴)をテキストにまとめる。結果確定済みなら着順・的中数も添える。
   // navigator.share/clipboardは環境によって権限や対応状況が違い、失敗すると
