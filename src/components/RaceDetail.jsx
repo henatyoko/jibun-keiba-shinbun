@@ -453,7 +453,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                 {h.result}着
               </span>
               <span className="text-xs font-bold" style={{ color: INK }}>
-                {h.name}
+                {h.num || "-"} {h.name}
               </span>
               {h.ninki != null && (
                 <span className="text-[0.625rem]" style={{ color: MUTED }}>
