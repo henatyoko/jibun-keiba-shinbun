@@ -144,27 +144,48 @@ function moneyPoint(honshokinRaw) {
   return Math.max(-2, Math.min(16, (Math.log10(yen) - 6) * 7));
 }
 
+// race_code(先頭8桁がYYYYMMDD)から開催日のUTCミリ秒を取り出す。
+function raceDateMs(raceCode) {
+  if (!raceCode || raceCode.length < 8) return null;
+  const y = Number(raceCode.slice(0, 4));
+  const m = Number(raceCode.slice(4, 6));
+  const d = Number(raceCode.slice(6, 8));
+  return Date.UTC(y, m - 1, d);
+}
+
+// 過去走の重みは「直近何走目か」ではなく「レース日からの実日数」で決める(半減期120日)。
+// 単純な順位ベースだと、3週間おきに使われている馬も半年おきの馬も同じ重みパターンに
+// なってしまい、休養明けの文脈が消えてしまう。日数ベースなら間隔が開くほど自然に
+// 過去走の重みが下がる。
+const RECENCY_HALF_LIFE_DAYS = 120;
+
 // 直近成績(JV-Data由来。新しい順で最大5走)から基礎スコアを算出する。
 // (1)獲得本賞金からその1走の価値を点数化(レースの格・着順の良さを両方反映)、
-// (2)直近ほど重みを付ける、(3)上がり3Fが直近ほど速くなっていれば上向きとして加点、
+// (2)レース日が近いほど重みを付ける(半減期120日)、
+// (3)上がり3Fが直近ほど速くなっていれば上向きとして加点、
 // の3軸で調整する。市場の人気・オッズは意図的に見ない(このアプリの狙いは
 // 市場に追従することではなく独自の評価をすることのため)。
 // データが無ければ既定値(70)のまま。
-export function baseScoreFromPastRaces(pastRaces) {
+export function baseScoreFromPastRaces(pastRaces, currentRaceCode) {
   if (!pastRaces || pastRaces.length === 0) return 70;
 
-  const RECENCY_WEIGHTS = [5, 4, 3, 2, 1];
+  const currentDateMs = raceDateMs(currentRaceCode);
   let weightedSum = 0;
   let weightTotal = 0;
   let sampleCount = 0;
 
-  pastRaces.slice(0, 5).forEach((r, i) => {
+  pastRaces.slice(0, 5).forEach((r) => {
     const finish = Number(r.kakutei_chakujun);
     if (!Number.isFinite(finish) || finish <= 0) return;
 
     const point = moneyPoint(r.kakutoku_honshokin);
 
-    const weight = RECENCY_WEIGHTS[i] ?? 1;
+    let weight = 1;
+    if (currentDateMs != null) {
+      const pastDateMs = raceDateMs(r.race_code);
+      const daysAgo = pastDateMs != null ? Math.max(0, (currentDateMs - pastDateMs) / 86400000) : RECENCY_HALF_LIFE_DAYS * 1.5;
+      weight = Math.pow(0.5, daysAgo / RECENCY_HALF_LIFE_DAYS);
+    }
     weightedSum += point * weight;
     weightTotal += weight;
     sampleCount += 1;

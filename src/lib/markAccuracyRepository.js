@@ -119,7 +119,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     const scored = race.horses.map((h) => {
       const jvPast = jvPastByHorse[h.horseId];
       const hasPastData = Boolean(jvPast && jvPast.length > 0);
-      const base = hasPastData ? baseScoreFromPastRaces(jvPast) : h.base;
+      const base = hasPastData ? baseScoreFromPastRaces(jvPast, race.id) : h.base;
       const { total, applied } = scoreHorse({ ...h, base }, attrRules, trendRules, race.name);
       const bias = courseBiasAdjustment(h.waku, race.place, race.distance);
       const aptitude = distanceAptitudeAdjustment(h.distanceStats, race.distance);

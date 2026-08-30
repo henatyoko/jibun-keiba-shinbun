@@ -152,7 +152,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     const base = race.horses
       .map((h) => {
         const jvPast = jvPastByHorse[h.horseId];
-        const base = jvPast ? baseScoreFromPastRaces(jvPast) : h.base;
+        const base = jvPast ? baseScoreFromPastRaces(jvPast, race.id) : h.base;
         const note = notesByHorse[h.horseId];
         const { total, bonus, applied } = scoreHorse(
           { ...h, base },
