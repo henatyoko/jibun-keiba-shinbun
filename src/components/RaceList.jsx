@@ -151,6 +151,17 @@ export default function RaceList({ races, attrRules, trendRules, onSelect, showF
               {race.place}
               {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
             </p>
+            {race.isPastReview && (() => {
+              const top3 = race.horses
+                .filter((h) => h.result && h.result <= 3)
+                .sort((a, b) => a.result - b.result);
+              if (top3.length === 0) return null;
+              return (
+                <p className="text-xs mt-1.5 font-semibold" style={{ color: INK }}>
+                  {top3.map((h) => `${h.result}着 ${h.name}`).join(" / ")}
+                </p>
+              );
+            })()}
           </button>
         ))}
       </div>
