@@ -158,7 +158,7 @@ export default function RaceList({ races, attrRules, trendRules, onSelect, showF
               if (top3.length === 0) return null;
               return (
                 <p className="text-xs mt-1.5 font-semibold" style={{ color: INK }}>
-                  {top3.map((h) => `${h.result}着 ${h.name}`).join(" / ")}
+                  {top3.map((h) => `${h.result}着 ${h.num || "-"} ${h.name}`).join(" / ")}
                 </p>
               );
             })()}
