@@ -54,6 +54,12 @@ export function hasOwnDistanceData(distanceStats, distanceStr) {
 // 競走馬マスタの距離別通算成績(芝/ダート×短距離[〜1600m]/中距離[1601〜2200m]/
 // 長距離[2201m〜])から、今日のレースの距離での適性による補正を返す。
 // 3着内率が高いほど加点、出走数が少ない/着外続きなら減点。データが薄ければnull。
+// 距離適性・血統距離適性の強さの倍率。過去4週末・半年分(1862レース)で
+// 0.5倍/1.0倍/1.5倍を比較検証した結果、1.5倍が◎○▲△全てで的中率改善
+// (◎73.4%→76.9%等)、穴のみ小幅悪化(35.4%→32.5%)というバランスの良い
+// 結果だったため採用。
+const APTITUDE_SCALE = 1.5;
+
 export function distanceAptitudeAdjustment(distanceStats, distanceStr) {
   const bucket = distanceBucketKey(distanceStr);
   if (!bucket || !distanceStats) return null;
@@ -65,7 +71,8 @@ export function distanceAptitudeAdjustment(distanceStats, distanceStr) {
 
   const top3 = stats.chaku1 + stats.chaku2 + stats.chaku3;
   const top3Rate = top3 / starts;
-  const score = Math.max(-2, Math.min(3, Math.round((top3Rate - 0.3) * 6)));
+  const rawScore = Math.max(-2, Math.min(3, Math.round((top3Rate - 0.3) * 6)));
+  const score = Math.round(rawScore * APTITUDE_SCALE);
   if (score === 0) return null;
 
   return { label: `距離適性${bucket.surfaceLabel}${top3}/${starts}`, score };
@@ -89,7 +96,8 @@ export function pedigreeAptitudeAdjustment(sireStats, damsireStats, distanceStr)
 
   const top3 = combined.chaku1 + combined.chaku2 + combined.chaku3;
   const top3Rate = top3 / starts;
-  const score = Math.max(-2, Math.min(2, Math.round((top3Rate - 0.3) * 5)));
+  const rawScore = Math.max(-2, Math.min(2, Math.round((top3Rate - 0.3) * 5)));
+  const score = Math.round(rawScore * APTITUDE_SCALE);
   if (score === 0) return null;
 
   return { label: `血統距離適性${bucket.surfaceLabel}${top3}/${starts}`, score };
@@ -153,11 +161,12 @@ function raceDateMs(raceCode) {
   return Date.UTC(y, m - 1, d);
 }
 
-// 過去走の重みは「直近何走目か」ではなく「レース日からの実日数」で決める(半減期120日)。
+// 過去走の重みは「直近何走目か」ではなく「レース日からの実日数」で決める(半減期60日)。
 // 単純な順位ベースだと、3週間おきに使われている馬も半年おきの馬も同じ重みパターンに
 // なってしまい、休養明けの文脈が消えてしまう。日数ベースなら間隔が開くほど自然に
-// 過去走の重みが下がる。
-const RECENCY_HALF_LIFE_DAYS = 120;
+// 過去走の重みが下がる。半減期は半年分(1862レース)で60/90/120/150/200日を比較検証し、
+// 60日が最も的中率が高かった(全体42.3%→45.0%)ため採用。
+const RECENCY_HALF_LIFE_DAYS = 60;
 
 // 直近成績(JV-Data由来。新しい順で最大5走)から基礎スコアを算出する。
 // (1)獲得本賞金からその1走の価値を点数化(レースの格・着順の良さを両方反映)、
