@@ -165,7 +165,7 @@ async function assembleRaces(raceRows, isPastReview) {
     const key = `${o.race_code}_${o.umaban}`;
     if (!(key in latestOddsByKey)) latestOddsByKey[key] = o;
   });
-  const sireByHorseId = Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, s.ketto1_bamei]));
+  const sireByHorseId = Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, s.ketto1_bamei?.trim()]));
   const distanceStatsByHorseId = Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, extractDistanceStats(s)]));
   const pedigreeIdsByHorseId = Object.fromEntries(
     (sireRows || []).map((s) => [s.ketto_toroku_bango, { sireId: s.ketto1_hanshoku_toroku_bango, damsireId: s.ketto5_hanshoku_toroku_bango }])
@@ -186,15 +186,15 @@ async function assembleRaces(raceRows, isPastReview) {
         return {
           num: Number(h.umaban),
           waku: Number(h.wakuban),
-          name: h.bamei,
+          name: h.bamei?.trim(),
           horseId: h.ketto_toroku_bango,
           sire: sireByHorseId[h.ketto_toroku_bango] || null,
           distanceStats: distanceStatsByHorseId[h.ketto_toroku_bango] || null,
           sireId: pedigreeIdsByHorseId[h.ketto_toroku_bango]?.sireId || null,
           damsireId: pedigreeIdsByHorseId[h.ketto_toroku_bango]?.damsireId || null,
-          jockey: h.kishumei_ryakusho,
-          trainer: h.chokyoshimei_ryakusho || null,
-          owner: h.banushimei_hojinkaku_nashi || null,
+          jockey: h.kishumei_ryakusho?.trim(),
+          trainer: h.chokyoshimei_ryakusho?.trim() || null,
+          owner: h.banushimei_hojinkaku_nashi?.trim() || null,
           age: Number(h.barei),
           base: 70,
           result: positiveOrNull(h.kakutei_chakujun),

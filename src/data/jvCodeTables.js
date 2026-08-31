@@ -74,9 +74,12 @@ export function gradeBadge(race) {
   return "一般";
 }
 
-// レース名(冠名が無い条件戦は「3歳以上1勝クラス」のような形に組み立てる)
+// レース名(冠名が無い条件戦は「3歳以上1勝クラス」のような形に組み立てる)。
+// JV-Dataのkyosomei_hondaiは固定長のため、冠名が無いレースは全角スペースで
+// 埋められた空文字列が入っている。trim()しないと空白だけの見出しになってしまう。
 export function raceTitle(race) {
-  if (race.kyosomei_hondai) return race.kyosomei_hondai;
+  const hondai = race.kyosomei_hondai?.trim();
+  if (hondai) return hondai;
   const age = SHUBETSU_AGE_LABELS[race.kyoso_shubetsu_code] || "";
   const joken = jokenLabel(pickJokenCode(race)) || "";
   return `${age}${joken}`.trim() || "競走";
