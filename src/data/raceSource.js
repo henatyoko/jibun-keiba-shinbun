@@ -150,7 +150,23 @@ async function assembleRaces(raceRows, isPastReview) {
 
   if (entryError) return MOCK_RACES;
 
-  const horseIds = [...new Set((entryRows || []).map((e) => e.ketto_toroku_bango))];
+  // umagoto_race_johoの主キーはumabanを含む(race_code, umaban, ketto_toroku_bango)ため、
+  // 枠番確定前("00")に登録された行と、確定後の正しい馬番の行が同じ馬について両方
+  // 残ってしまうことがある(本来は上書きされるべきだが別行として追加される)。
+  // 同じ(race_code, ketto_toroku_bango)が複数あれば、馬番が確定している方を優先する。
+  const dedupedEntryRows = (() => {
+    const byKey = new Map();
+    (entryRows || []).forEach((e) => {
+      const key = `${e.race_code}_${e.ketto_toroku_bango}`;
+      const existing = byKey.get(key);
+      if (!existing || (existing.umaban === "00" && e.umaban !== "00")) {
+        byKey.set(key, e);
+      }
+    });
+    return [...byKey.values()];
+  })();
+
+  const horseIds = [...new Set(dedupedEntryRows.map((e) => e.ketto_toroku_bango))];
 
   const [{ rows: oddsRows }, { data: sireRows }] = await Promise.all([
     oddsPromise,
@@ -175,7 +191,7 @@ async function assembleRaces(raceRows, isPastReview) {
   );
 
   const entriesByRaceCode = {};
-  (entryRows || []).forEach((e) => {
+  dedupedEntryRows.forEach((e) => {
     (entriesByRaceCode[e.race_code] ||= []).push(e);
   });
 
