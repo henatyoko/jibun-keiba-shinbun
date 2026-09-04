@@ -6,6 +6,7 @@ import {
   distanceAptitudeAdjustment,
   handicapWeightAdjustment,
   handicapWeightDropAdjustment,
+  distanceShorteningAdjustment,
   computeMarks,
 } from "./scoring";
 import { saveSnapshotIfMissing } from "./raceSnapshotRepository";
@@ -113,6 +114,20 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     jvPastByHorse[horseId] = (rowsByHorse[horseId] || []).filter((r) => r.race_code < cutoff).slice(0, 5);
   });
 
+  // 距離短縮判定用に、各馬の前走(先頭行)のレース距離・トラック種別を付与する。
+  const latestRaceCodes = [...new Set(Object.values(jvPastByHorse).map((rows) => rows[0]?.race_code).filter(Boolean))];
+  if (latestRaceCodes.length > 0) {
+    const { data: raceMeta } = await supabase
+      .from("race_shosai")
+      .select("race_code, kyori, track_code, keibajo_code")
+      .in("race_code", latestRaceCodes);
+    const metaByCode = Object.fromEntries((raceMeta || []).map((r) => [r.race_code, r]));
+    Object.values(jvPastByHorse).forEach((rows) => {
+      const meta = rows[0] && metaByCode[rows[0].race_code];
+      if (meta) Object.assign(rows[0], meta);
+    });
+  }
+
   racesNeedingCompute.forEach((race) => {
     const futanJuryoList = race.horses.map((h) => h.futanJuryo).filter((v) => Number.isFinite(v));
     const fieldAvgFutanJuryo =
@@ -126,18 +141,26 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       const aptitude = distanceAptitudeAdjustment(h.distanceStats, race.distance);
       const handicap = handicapWeightAdjustment(race.isHandicap, h.futanJuryo, fieldAvgFutanJuryo);
       const handicapDrop = handicapWeightDropAdjustment(race.isHandicap, h.futanJuryo, jvPast);
+      const shortening = distanceShorteningAdjustment(race, jvPast?.[0]);
       const extra = [
         ...(bias ? [{ label: bias.label, score: bias.score }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
         ...(handicap ? [{ label: handicap.label, score: handicap.score }] : []),
         ...(handicapDrop ? [{ label: handicapDrop.label, score: handicapDrop.score }] : []),
+        ...(shortening ? [{ label: shortening.label, score: shortening.score }] : []),
       ];
       return {
         ...h,
         base,
         past: jvPast,
         hasPastData,
-        total: total + (bias?.score ?? 0) + (aptitude?.score ?? 0) + (handicap?.score ?? 0) + (handicapDrop?.score ?? 0),
+        total:
+          total +
+          (bias?.score ?? 0) +
+          (aptitude?.score ?? 0) +
+          (handicap?.score ?? 0) +
+          (handicapDrop?.score ?? 0) +
+          (shortening?.score ?? 0),
         applied: [...applied, ...extra],
       };
     });

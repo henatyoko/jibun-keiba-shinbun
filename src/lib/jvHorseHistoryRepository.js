@@ -33,5 +33,22 @@ export async function fetchJvPastRaces(horseIds, beforeRaceCode) {
     const list = (byHorse[row.ketto_toroku_bango] ||= []);
     if (list.length < 5) list.push(row);
   });
+
+  // 距離短縮判定用に、前走(先頭行)のレース距離・トラック種別・競馬場を付与する。
+  // 前走だけで十分なので(distanceShorteningAdjustmentは前走としか比較しない)、
+  // 全5走分ではなく先頭行のrace_codeだけまとめて引く。
+  const latestRaceCodes = [...new Set(Object.values(byHorse).map((rows) => rows[0]?.race_code).filter(Boolean))];
+  if (latestRaceCodes.length > 0) {
+    const { data: raceMeta } = await supabase
+      .from("race_shosai")
+      .select("race_code, kyori, track_code, keibajo_code")
+      .in("race_code", latestRaceCodes);
+    const metaByCode = Object.fromEntries((raceMeta || []).map((r) => [r.race_code, r]));
+    Object.values(byHorse).forEach((rows) => {
+      const meta = rows[0] && metaByCode[rows[0].race_code];
+      if (meta) Object.assign(rows[0], meta);
+    });
+  }
+
   return byHorse;
 }

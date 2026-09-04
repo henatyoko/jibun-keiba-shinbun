@@ -46,6 +46,41 @@ export function handicapWeightDropAdjustment(isHandicap, futanJuryo, pastRaces) 
   return { label: `過去最軽量-${dropKg.toFixed(1)}kg`, score };
 }
 
+// 前走から見て「誤差程度」で実質的な短縮とは言えない組み合わせ。
+// ダート1200m→1150m、1300m→1200mは各競馬場のコース設定差程度でしかなく、
+// 脚質・戦法が変わるような短縮ではないため対象外とする。
+function isTrivialShortening(prevSurface, prevMeters, todaySurface, todayMeters) {
+  if (prevSurface === todaySurface && prevSurface === "ダ" && prevMeters === 1200 && todayMeters === 1150) return true;
+  if (prevSurface === todaySurface && prevMeters === 1300 && todayMeters === 1200) return true;
+  return false;
+}
+
+// 前走から見て今回が距離短縮になっている場合に、ごく小さく加点する(+1点)。
+// 距離短縮は末脚を活かしやすくなる馬が一定数いる、という考え方。
+// 新潟の芝1000m(千直)は出走馬のほぼ全てが距離短縮組になる特殊なコースのため、
+// 短縮自体に意味が無く対象外とする。前走と同じ馬場(芝/ダート)同士でのみ判定する。
+export function distanceShorteningAdjustment(race, latestPastRace) {
+  const todayMatch = race.distance?.match(/^(芝|ダ)(\d+)m/);
+  if (!todayMatch) return null;
+  const [, todaySurface, todayMetersStr] = todayMatch;
+  const todayMeters = Number(todayMetersStr);
+
+  if (race.place === "新潟" && todaySurface === "芝" && todayMeters === 1000) return null; // 千直は対象外
+
+  if (!latestPastRace?.kyori || !latestPastRace?.track_code) return null;
+  const prevTrackNum = Number(latestPastRace.track_code);
+  if (!Number.isFinite(prevTrackNum) || prevTrackNum >= 51) return null; // 障害は対象外
+  const prevSurface = prevTrackNum >= 23 ? "ダ" : "芝";
+  const prevMeters = Number(latestPastRace.kyori);
+  if (!Number.isFinite(prevMeters)) return null;
+
+  if (prevSurface !== todaySurface) return null; // 芝⇔ダートをまたぐ変化は距離短縮として扱わない
+  if (todayMeters >= prevMeters) return null; // 短縮でなければ対象外
+  if (isTrivialShortening(prevSurface, prevMeters, todaySurface, todayMeters)) return null;
+
+  return { label: "距離短縮", score: 1 };
+}
+
 // distanceStr("芝2400m"等)から、競走馬マスタの距離別集計で使うバケットキーを求める。
 // 短距離[〜1600m]/中距離[1601〜2200m]/長距離[2201m〜]。
 function distanceBucketKey(distanceStr) {
