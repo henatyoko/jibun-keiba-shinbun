@@ -26,6 +26,26 @@ export function handicapWeightAdjustment(isHandicap, futanJuryo, fieldAvgFutanJu
   return { label: `斤量${futanJuryo.toFixed(1)}kg`, score };
 }
 
+// ハンデ戦限定で、本馬がこれまでに背負ったことのある斤量(直近5走)の最軽量と比べて、
+// 今回さらに軽くなっている(=過去に経験の無い軽さ)場合に加点する。
+// レース平均との比較(handicapWeightAdjustment)とは別のシグナルで、
+// 「ハンデ担当者が過去の実績以上に評価を大きく下げてきた」ことを捉える狙い。
+export function handicapWeightDropAdjustment(isHandicap, futanJuryo, pastRaces) {
+  if (!isHandicap || !Number.isFinite(futanJuryo)) return null;
+  const pastWeights = (pastRaces || [])
+    .map((r) => Number(r.futan_juryo))
+    .filter((v) => Number.isFinite(v) && v > 0)
+    .map((v) => v / 10); // JV-Dataは0.1kg単位の数値文字列("560"=56.0kg)
+  if (pastWeights.length < 2) return null; // データ不足
+
+  const minPastWeight = Math.min(...pastWeights);
+  const dropKg = minPastWeight - futanJuryo; // 正なら過去最軽量よりさらに軽い
+  if (dropKg < 1) return null; // 1kg未満の差は誤差程度として無視
+
+  const score = Math.min(3, Math.round(dropKg));
+  return { label: `過去最軽量-${dropKg.toFixed(1)}kg`, score };
+}
+
 // distanceStr("芝2400m"等)から、競走馬マスタの距離別集計で使うバケットキーを求める。
 // 短距離[〜1600m]/中距離[1601〜2200m]/長距離[2201m〜]。
 function distanceBucketKey(distanceStr) {

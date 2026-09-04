@@ -5,6 +5,7 @@ import {
   courseBiasAdjustment,
   distanceAptitudeAdjustment,
   handicapWeightAdjustment,
+  handicapWeightDropAdjustment,
   computeMarks,
 } from "./scoring";
 import { saveSnapshotIfMissing } from "./raceSnapshotRepository";
@@ -88,7 +89,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data: page, error } = await supabase
       .from("umagoto_race_joho")
-      .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f, kakutoku_honshokin")
+      .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f, kakutoku_honshokin, futan_juryo")
       .in("ketto_toroku_bango", horseIds)
       .gte("race_code", `${cutoffPrefix}0000000000`)
       .not("kakutei_chakujun", "is", null)
@@ -124,17 +125,19 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       const bias = courseBiasAdjustment(h.waku, race.place, race.distance);
       const aptitude = distanceAptitudeAdjustment(h.distanceStats, race.distance);
       const handicap = handicapWeightAdjustment(race.isHandicap, h.futanJuryo, fieldAvgFutanJuryo);
+      const handicapDrop = handicapWeightDropAdjustment(race.isHandicap, h.futanJuryo, jvPast);
       const extra = [
         ...(bias ? [{ label: bias.label, score: bias.score }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
         ...(handicap ? [{ label: handicap.label, score: handicap.score }] : []),
+        ...(handicapDrop ? [{ label: handicapDrop.label, score: handicapDrop.score }] : []),
       ];
       return {
         ...h,
         base,
         past: jvPast,
         hasPastData,
-        total: total + (bias?.score ?? 0) + (aptitude?.score ?? 0) + (handicap?.score ?? 0),
+        total: total + (bias?.score ?? 0) + (aptitude?.score ?? 0) + (handicap?.score ?? 0) + (handicapDrop?.score ?? 0),
         applied: [...applied, ...extra],
       };
     });

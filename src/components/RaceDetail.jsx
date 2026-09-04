@@ -10,6 +10,7 @@ import {
   hasOwnDistanceData,
   pedigreeAptitudeAdjustment,
   handicapWeightAdjustment,
+  handicapWeightDropAdjustment,
   paddockAdjustment,
   computeMarks,
   suggestBettingPattern,
@@ -169,19 +170,22 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         const paddockGrade = paddockByNum[h.num];
         const paddock = paddockAdjustment(paddockGrade);
         const handicap = handicapWeightAdjustment(race.isHandicap, h.futanJuryo, fieldAvgFutanJuryo);
+        const handicapDrop = handicapWeightDropAdjustment(race.isHandicap, h.futanJuryo, jvPast);
         const extra = [
           ...(aiAdjustment !== 0 ? [{ label: "AI評価", score: aiAdjustment }] : []),
           ...(bias ? [{ label: bias.label, score: bias.score }] : []),
           ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
           ...(paddock ? [{ label: paddock.label, score: paddock.score }] : []),
           ...(handicap ? [{ label: handicap.label, score: handicap.score }] : []),
+          ...(handicapDrop ? [{ label: handicapDrop.label, score: handicapDrop.score }] : []),
         ];
         const extraTotal =
           aiAdjustment +
           (bias?.score ?? 0) +
           (aptitude?.score ?? 0) +
           (paddock?.score ?? 0) +
-          (handicap?.score ?? 0);
+          (handicap?.score ?? 0) +
+          (handicapDrop?.score ?? 0);
         const hasPastData = Boolean(jvPast && jvPast.length > 0);
         return {
           ...h,
