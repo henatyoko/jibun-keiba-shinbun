@@ -81,6 +81,38 @@ export function distanceShorteningAdjustment(race, latestPastRace) {
   return { label: "距離短縮", score: 1 };
 }
 
+// 社台グループ系の生産牧場(表記ゆれ込み)。ノーザンファーム等の充実した外厩・
+// 育成環境を持つ牧場は、休養期間中も仕上がりが崩れにくいという考え方から、
+// 休養明け(新馬戦のデビューも含む)の馬に小さく加点する。
+const SHADAI_GROUP_FARMS = new Set([
+  "社台ファーム",
+  "社台フアーム",
+  "ノーザンファーム",
+  "追分ファーム",
+  "白老ファーム",
+  "社台コーポレーション白老ファーム",
+  "社台牧場",
+]);
+const LAYOFF_DAYS_THRESHOLD = 90;
+
+// pastRaces: 新しい順の過去走配列(先頭が前走)。空/未指定なら新馬戦(デビュー)扱いにする。
+export function shadaiLayoffAdjustment(breederName, raceCode, pastRaces) {
+  if (!breederName || !SHADAI_GROUP_FARMS.has(breederName.trim())) return null;
+
+  const latest = pastRaces?.[0];
+  if (!latest) {
+    return { label: "社台系・デビュー", score: 1 }; // 新馬戦は休養明けとして扱う
+  }
+
+  const prevDateMs = raceDateMs(latest.race_code);
+  const currentDateMs = raceDateMs(raceCode);
+  if (prevDateMs == null || currentDateMs == null) return null;
+  const daysSince = (currentDateMs - prevDateMs) / 86400000;
+  if (daysSince < LAYOFF_DAYS_THRESHOLD) return null;
+
+  return { label: "社台系・休養明け", score: 1 };
+}
+
 // distanceStr("芝2400m"等)から、競走馬マスタの距離別集計で使うバケットキーを求める。
 // 短距離[〜1600m]/中距離[1601〜2200m]/長距離[2201m〜]。
 function distanceBucketKey(distanceStr) {

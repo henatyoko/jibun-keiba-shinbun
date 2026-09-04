@@ -7,6 +7,7 @@ import {
   handicapWeightAdjustment,
   handicapWeightDropAdjustment,
   distanceShorteningAdjustment,
+  shadaiLayoffAdjustment,
   computeMarks,
 } from "./scoring";
 import { saveSnapshotIfMissing } from "./raceSnapshotRepository";
@@ -142,12 +143,14 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       const handicap = handicapWeightAdjustment(race.isHandicap, h.futanJuryo, fieldAvgFutanJuryo);
       const handicapDrop = handicapWeightDropAdjustment(race.isHandicap, h.futanJuryo, jvPast);
       const shortening = distanceShorteningAdjustment(race, jvPast?.[0]);
+      const shadaiLayoff = shadaiLayoffAdjustment(h.breeder, race.id, jvPast);
       const extra = [
         ...(bias ? [{ label: bias.label, score: bias.score }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
         ...(handicap ? [{ label: handicap.label, score: handicap.score }] : []),
         ...(handicapDrop ? [{ label: handicapDrop.label, score: handicapDrop.score }] : []),
         ...(shortening ? [{ label: shortening.label, score: shortening.score }] : []),
+        ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
       ];
       return {
         ...h,
@@ -160,7 +163,8 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
           (aptitude?.score ?? 0) +
           (handicap?.score ?? 0) +
           (handicapDrop?.score ?? 0) +
-          (shortening?.score ?? 0),
+          (shortening?.score ?? 0) +
+          (shadaiLayoff?.score ?? 0),
         applied: [...applied, ...extra],
       };
     });
