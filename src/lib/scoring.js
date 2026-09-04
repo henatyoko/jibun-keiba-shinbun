@@ -113,6 +113,23 @@ export function shadaiLayoffAdjustment(breederName, raceCode, pastRaces) {
   return { label: "社台系・休養明け", score: 1 };
 }
 
+// レース単位の「乗り捨て」判定。前走に同じ騎手が乗っていた馬が同じレースに複数
+// 出走していて、その騎手が今回はどれか1頭だけに継続騎乗し、他の馬には別の騎手が
+// 乗る場合、選ばれなかった方の馬を「乗り捨てられた馬」として小さく減点する
+// (騎手が複数の依頼の中からあえて選ばなかった、という判断の重みを反映する)。
+// raceJockeyContext: 同じレースの全馬について { horseId, jockey, prevJockey } の配列。
+export function jockeyAbandonmentAdjustment(horseId, jockey, prevJockey, raceJockeyContext) {
+  if (!prevJockey) return null;
+  if (jockey === prevJockey) return null; // 自身が継続騎乗なら「乗り捨てられた側」ではない
+
+  const chosenBySameJockey = (raceJockeyContext || []).some(
+    (h) => h.horseId !== horseId && h.prevJockey === prevJockey && h.jockey === prevJockey
+  );
+  if (!chosenBySameJockey) return null;
+
+  return { label: `${prevJockey}乗り捨て`, score: -1 };
+}
+
 // distanceStr("芝2400m"等)から、競走馬マスタの距離別集計で使うバケットキーを求める。
 // 短距離[〜1600m]/中距離[1601〜2200m]/長距離[2201m〜]。
 function distanceBucketKey(distanceStr) {

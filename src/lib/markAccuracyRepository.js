@@ -8,6 +8,7 @@ import {
   handicapWeightDropAdjustment,
   distanceShorteningAdjustment,
   shadaiLayoffAdjustment,
+  jockeyAbandonmentAdjustment,
   computeMarks,
 } from "./scoring";
 import { saveSnapshotIfMissing } from "./raceSnapshotRepository";
@@ -91,7 +92,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data: page, error } = await supabase
       .from("umagoto_race_joho")
-      .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f, kakutoku_honshokin, futan_juryo")
+      .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f, kakutoku_honshokin, futan_juryo, kishumei_ryakusho")
       .in("ketto_toroku_bango", horseIds)
       .gte("race_code", `${cutoffPrefix}0000000000`)
       .not("kakutei_chakujun", "is", null)
@@ -133,6 +134,12 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     const futanJuryoList = race.horses.map((h) => h.futanJuryo).filter((v) => Number.isFinite(v));
     const fieldAvgFutanJuryo =
       futanJuryoList.length > 0 ? futanJuryoList.reduce((sum, v) => sum + v, 0) / futanJuryoList.length : null;
+    // 「乗り捨て」判定のため、同じレースの全馬の(今回の騎手, 前走の騎手)を先に集めておく
+    const raceJockeyContext = race.horses.map((h) => ({
+      horseId: h.horseId,
+      jockey: h.jockey,
+      prevJockey: jvPastByHorse[h.horseId]?.[0]?.kishumei_ryakusho?.trim() || null,
+    }));
     const scored = race.horses.map((h) => {
       const jvPast = jvPastByHorse[h.horseId];
       const hasPastData = Boolean(jvPast && jvPast.length > 0);
@@ -144,6 +151,12 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       const handicapDrop = handicapWeightDropAdjustment(race.isHandicap, h.futanJuryo, jvPast);
       const shortening = distanceShorteningAdjustment(race, jvPast?.[0]);
       const shadaiLayoff = shadaiLayoffAdjustment(h.breeder, race.id, jvPast);
+      const abandonment = jockeyAbandonmentAdjustment(
+        h.horseId,
+        h.jockey,
+        jvPast?.[0]?.kishumei_ryakusho?.trim() || null,
+        raceJockeyContext
+      );
       const extra = [
         ...(bias ? [{ label: bias.label, score: bias.score }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
@@ -151,6 +164,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
         ...(handicapDrop ? [{ label: handicapDrop.label, score: handicapDrop.score }] : []),
         ...(shortening ? [{ label: shortening.label, score: shortening.score }] : []),
         ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
+        ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
       ];
       return {
         ...h,
@@ -164,7 +178,8 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
           (handicap?.score ?? 0) +
           (handicapDrop?.score ?? 0) +
           (shortening?.score ?? 0) +
-          (shadaiLayoff?.score ?? 0),
+          (shadaiLayoff?.score ?? 0) +
+          (abandonment?.score ?? 0),
         applied: [...applied, ...extra],
       };
     });

@@ -13,6 +13,7 @@ import {
   handicapWeightDropAdjustment,
   distanceShorteningAdjustment,
   shadaiLayoffAdjustment,
+  jockeyAbandonmentAdjustment,
   paddockAdjustment,
   computeMarks,
   suggestBettingPattern,
@@ -152,6 +153,12 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     const futanJuryoList = race.horses.map((h) => h.futanJuryo).filter((v) => Number.isFinite(v));
     const fieldAvgFutanJuryo =
       futanJuryoList.length > 0 ? futanJuryoList.reduce((sum, v) => sum + v, 0) / futanJuryoList.length : null;
+    // 「乗り捨て」判定のため、同じレースの全馬の(今回の騎手, 前走の騎手)を先に集めておく
+    const raceJockeyContext = race.horses.map((h) => ({
+      horseId: h.horseId,
+      jockey: h.jockey,
+      prevJockey: jvPastByHorse[h.horseId]?.[0]?.kishumei_ryakusho?.trim() || null,
+    }));
     const base = race.horses
       .map((h) => {
         const jvPast = jvPastByHorse[h.horseId];
@@ -175,6 +182,12 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         const handicapDrop = handicapWeightDropAdjustment(race.isHandicap, h.futanJuryo, jvPast);
         const shortening = distanceShorteningAdjustment(race, jvPast?.[0]);
         const shadaiLayoff = shadaiLayoffAdjustment(h.breeder, race.id, jvPast);
+        const abandonment = jockeyAbandonmentAdjustment(
+          h.horseId,
+          h.jockey,
+          jvPast?.[0]?.kishumei_ryakusho?.trim() || null,
+          raceJockeyContext
+        );
         const extra = [
           ...(aiAdjustment !== 0 ? [{ label: "AI評価", score: aiAdjustment }] : []),
           ...(bias ? [{ label: bias.label, score: bias.score }] : []),
@@ -184,6 +197,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           ...(handicapDrop ? [{ label: handicapDrop.label, score: handicapDrop.score }] : []),
           ...(shortening ? [{ label: shortening.label, score: shortening.score }] : []),
           ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
+          ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
         ];
         const extraTotal =
           aiAdjustment +
@@ -192,6 +206,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           (paddock?.score ?? 0) +
           (handicap?.score ?? 0) +
           (handicapDrop?.score ?? 0) +
+          (abandonment?.score ?? 0) +
           (shortening?.score ?? 0) +
           (shadaiLayoff?.score ?? 0);
         const hasPastData = Boolean(jvPast && jvPast.length > 0);

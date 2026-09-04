@@ -15,7 +15,7 @@ export async function fetchJvPastRaces(horseIds, beforeRaceCode) {
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data: page, error } = await supabase
       .from("umagoto_race_joho")
-      .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f, kakutoku_honshokin, futan_juryo")
+      .select("ketto_toroku_bango, race_code, kakutei_chakujun, tansho_ninkijun, kohan_3f, kakutoku_honshokin, futan_juryo, kishumei_ryakusho")
       .in("ketto_toroku_bango", horseIds)
       .lt("race_code", beforeRaceCode)
       .not("kakutei_chakujun", "is", null)
