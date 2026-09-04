@@ -11,7 +11,6 @@ import {
   pedigreeAptitudeAdjustment,
   handicapWeightAdjustment,
   handicapWeightDropAdjustment,
-  distanceShorteningAdjustment,
   shadaiLayoffAdjustment,
   jockeyAbandonmentAdjustment,
   paddockAdjustment,
@@ -180,7 +179,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         const paddock = paddockAdjustment(paddockGrade);
         const handicap = handicapWeightAdjustment(race.isHandicap, h.futanJuryo, fieldAvgFutanJuryo);
         const handicapDrop = handicapWeightDropAdjustment(race.isHandicap, h.futanJuryo, jvPast);
-        const shortening = distanceShorteningAdjustment(race, jvPast?.[0]);
         const shadaiLayoff = shadaiLayoffAdjustment(h.breeder, race.id, jvPast);
         const abandonment = jockeyAbandonmentAdjustment(
           h.horseId,
@@ -195,7 +193,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           ...(paddock ? [{ label: paddock.label, score: paddock.score }] : []),
           ...(handicap ? [{ label: handicap.label, score: handicap.score }] : []),
           ...(handicapDrop ? [{ label: handicapDrop.label, score: handicapDrop.score }] : []),
-          ...(shortening ? [{ label: shortening.label, score: shortening.score }] : []),
           ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
           ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
         ];
@@ -207,7 +204,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           (handicap?.score ?? 0) +
           (handicapDrop?.score ?? 0) +
           (abandonment?.score ?? 0) +
-          (shortening?.score ?? 0) +
           (shadaiLayoff?.score ?? 0);
         const hasPastData = Boolean(jvPast && jvPast.length > 0);
         return {
