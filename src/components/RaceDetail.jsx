@@ -56,6 +56,21 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
       .sort((a, b) => (a.raceNumber ?? 0) - (b.raceNumber ?? 0));
   }, [races, race]);
 
+  // 同じ開催日の他の競馬場一覧(会場切り替えプルダウン用)。
+  const sameDayPlaces = useMemo(() => {
+    if (!races) return [];
+    return [...new Set(races.filter((r) => r.rawDate === race.rawDate).map((r) => r.place))];
+  }, [races, race]);
+
+  // 会場を切り替えた時、その会場のその日の1レース目に移動する。
+  const handlePlaceChange = (newPlace) => {
+    if (!races || newPlace === race.place) return;
+    const target = races
+      .filter((r) => r.place === newPlace && r.rawDate === race.rawDate)
+      .sort((a, b) => (a.raceNumber ?? 0) - (b.raceNumber ?? 0))[0];
+    if (target) onNavigate(target);
+  };
+
   // ロジック変更をしても過去レースの印・評価が遡って変わらないよう、結果確定済みのレースは
   // まずスナップショット(最初に計算された時点の固定結果)を探し、あればそれをそのまま使って
   // 重い再取得・再計算(過去走/調教/血統/AI生成)を丸ごと省略する。無ければ従来通り計算する。
@@ -351,6 +366,20 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           レース一覧
         </button>
         <div className="flex-1" />
+        {sameDayPlaces.length > 1 && (
+          <select
+            value={race.place}
+            onChange={(e) => handlePlaceChange(e.target.value)}
+            className="px-2 py-2 text-sm font-bold"
+            style={{ color: INK, border: `1px solid ${INK}`, background: PAPER_CARD }}
+          >
+            {sameDayPlaces.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        )}
         {siblingRaces.length > 1 && (
           <select
             value={race.id}
