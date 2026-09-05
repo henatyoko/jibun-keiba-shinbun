@@ -1,7 +1,7 @@
 import { WAKU_COLORS } from "../lib/colors";
 
-export default function WakuBadge({ num }) {
-  const c = WAKU_COLORS[num] || WAKU_COLORS[1];
+export default function WakuBadge({ num, waku }) {
+  const c = WAKU_COLORS[waku] || WAKU_COLORS[1];
   return (
     <div
       className="flex items-center justify-center font-bold shrink-0"

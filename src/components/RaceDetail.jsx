@@ -590,7 +590,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               >
                 {mark}
               </div>
-              <WakuBadge num={h.num} />
+              <WakuBadge num={h.num} waku={h.waku} />
               <div className="flex-1 min-w-0">
                 {h.result && (
                   <div
