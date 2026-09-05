@@ -62,12 +62,14 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     return [...new Set(races.filter((r) => r.rawDate === race.rawDate).map((r) => r.place))];
   }, [races, race]);
 
-  // 会場を切り替えた時、その会場のその日の1レース目に移動する。
+  // 会場を切り替えた時、同じレース番号(例:7R→7R)があればそこへ、無ければ
+  // その会場のその日の1レース目に移動する。
   const handlePlaceChange = (newPlace) => {
     if (!races || newPlace === race.place) return;
-    const target = races
+    const candidates = races
       .filter((r) => r.place === newPlace && r.rawDate === race.rawDate)
-      .sort((a, b) => (a.raceNumber ?? 0) - (b.raceNumber ?? 0))[0];
+      .sort((a, b) => (a.raceNumber ?? 0) - (b.raceNumber ?? 0));
+    const target = candidates.find((r) => r.raceNumber === race.raceNumber) ?? candidates[0];
     if (target) onNavigate(target);
   };
 
