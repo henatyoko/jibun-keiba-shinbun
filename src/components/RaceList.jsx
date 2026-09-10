@@ -11,9 +11,36 @@ function formatDateLabel(rawDate) {
   return `${d.getMonth() + 1}/${d.getDate()}(${WEEKDAYS[d.getDay()]})`;
 }
 
-export default function RaceList({ races, attrRules, trendRules, onSelect, showFallbackNotice = true }) {
+// selectedDate/selectedPlaceはURL(ルーティング側)が正とするcontrolledな値。
+// 未指定または現在のracesに存在しない場合は、呼び出し側(App.jsx)が既定値へ
+// リダイレクトする前提のため、ここでは決定間のフォールバック表示だけ行う。
+export default function RaceList({
+  races,
+  attrRules,
+  trendRules,
+  onSelect,
+  showFallbackNotice = true,
+  selectedDate,
+  selectedPlace,
+  onDateChange,
+  onPlaceChange,
+}) {
   const dates = [...new Set(races.map((r) => r.rawDate).filter(Boolean))].sort();
-  const [date, setDate] = useState(dates[0] ?? null);
+  const date = dates.includes(selectedDate) ? selectedDate : dates[0] ?? null;
+
+  const racesOnDate = date ? races.filter((r) => r.rawDate === date) : races;
+  const places = [...new Set(racesOnDate.map((r) => r.place))];
+  const place = places.includes(selectedPlace) ? selectedPlace : places[0] ?? null;
+
+  // ページタイトルに日付・会場を反映する(SEO・タブ判別用)
+  useEffect(() => {
+    if (!date || !place) return;
+    document.title = `${formatDateLabel(date)} ${place} | じぶん競馬新聞`;
+    return () => {
+      document.title = "じぶん競馬新聞";
+    };
+  }, [date, place]);
+
   const [markAccuracy, setMarkAccuracy] = useState(null);
 
   // 振り返り表示の時だけ、印(◎○▲)ごとの3位以内的中率を集計する
@@ -30,23 +57,6 @@ export default function RaceList({ races, attrRules, trendRules, onSelect, showF
       cancelled = true;
     };
   }, [races, attrRules, trendRules]);
-
-  const racesOnDate = date ? races.filter((r) => r.rawDate === date) : races;
-  const places = [...new Set(racesOnDate.map((r) => r.place))];
-  const [place, setPlace] = useState(places[0] ?? null);
-
-  // レースデータが変わって今の選択日/場所が無くなった場合、先頭に戻す
-  useEffect(() => {
-    if (dates.length > 0 && !dates.includes(date)) {
-      setDate(dates[0]);
-    }
-  }, [races]);
-
-  useEffect(() => {
-    if (places.length > 0 && !places.includes(place)) {
-      setPlace(places[0]);
-    }
-  }, [date, races]);
 
   const visibleRaces = place ? racesOnDate.filter((r) => r.place === place) : racesOnDate;
 
@@ -89,7 +99,7 @@ export default function RaceList({ races, attrRules, trendRules, onSelect, showF
           {dates.map((d) => (
             <button
               key={d}
-              onClick={() => setDate(d)}
+              onClick={() => onDateChange?.(d)}
               className="px-3 py-1.5 text-sm font-semibold shrink-0"
               style={{
                 background: date === d ? RED : "transparent",
@@ -108,7 +118,7 @@ export default function RaceList({ races, attrRules, trendRules, onSelect, showF
         <div className="mb-4 relative inline-block">
           <select
             value={place ?? ""}
-            onChange={(e) => setPlace(e.target.value)}
+            onChange={(e) => onPlaceChange?.(e.target.value)}
             className="appearance-none pl-3 pr-8 py-1.5 text-sm font-semibold"
             style={{
               background: INK,

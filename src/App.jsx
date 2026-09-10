@@ -53,9 +53,43 @@ function LoadingOverlay() {
   );
 }
 
-// 開催日ページ(/history/:day)。過去レース一覧から選んだ1日分のレースを取得して表示する。
+// 現在(または直近の振り返り)のレース一覧ページ(/meeting/:day/:place)。
+// 会場ごとにURLとページタイトルを分ける(SEO対策)。
+function MeetingRoute({ races, racesLoading, attrRules, trendRules }) {
+  const { day, place } = useParams();
+  const navigate = useNavigate();
+
+  if (racesLoading) return <LoadingOverlay />;
+
+  const dates = [...new Set(races.map((r) => r.rawDate).filter(Boolean))].sort();
+  if (dates.length === 0) return <Navigate to="/" replace />;
+
+  const canonicalDay = dates.includes(day) ? day : dates[0];
+  const placesOnDay = [...new Set(races.filter((r) => r.rawDate === canonicalDay).map((r) => r.place))];
+  const canonicalPlace = placesOnDay.includes(place) ? place : placesOnDay[0];
+
+  if (day !== canonicalDay || place !== canonicalPlace) {
+    return <Navigate to={`/meeting/${canonicalDay}/${canonicalPlace}`} replace />;
+  }
+
+  return (
+    <RaceList
+      races={races}
+      attrRules={attrRules}
+      trendRules={trendRules}
+      selectedDate={day}
+      selectedPlace={place}
+      onDateChange={(d) => navigate(`/meeting/${d}/${place}`)}
+      onPlaceChange={(p) => navigate(`/meeting/${day}/${p}`)}
+      onSelect={(r) => navigate(`/races/${r.id}`)}
+    />
+  );
+}
+
+// 開催日ページ(/history/:day/:place)。過去レース一覧から選んだ1日分のレースを取得して表示する。
+// 会場ごとにURLとページタイトルを分ける(SEO対策)。
 function HistoryDayRoute({ attrRules, trendRules }) {
-  const { day } = useParams();
+  const { day, place } = useParams();
   const navigate = useNavigate();
   const [races, setRaces] = useState(null);
 
@@ -65,12 +99,24 @@ function HistoryDayRoute({ attrRules, trendRules }) {
   }, [day]);
 
   if (races === null) return <LoadingOverlay />;
+  if (races.length === 0) return <Navigate to="/history" replace />;
+
+  const placesOnDay = [...new Set(races.map((r) => r.place))];
+  const canonicalPlace = placesOnDay.includes(place) ? place : placesOnDay[0];
+
+  if (place !== canonicalPlace) {
+    return <Navigate to={`/history/${day}/${canonicalPlace}`} replace />;
+  }
+
   return (
     <RaceList
       races={races}
       attrRules={attrRules}
       trendRules={trendRules}
       showFallbackNotice={false}
+      selectedDate={day}
+      selectedPlace={place}
+      onPlaceChange={(p) => navigate(`/history/${day}/${p}`)}
       onSelect={(r) => navigate(`/races/${r.id}`)}
     />
   );
@@ -107,7 +153,7 @@ function RaceDetailRoute({ races, racesLoading, attrRules, trendRules, userId })
         attrRules={attrRules}
         trendRules={trendRules}
         userId={userId}
-        onBack={() => navigate("/")}
+        onBack={() => navigate(`/meeting/${raceInMain.rawDate}/${raceInMain.place}`)}
         onNavigate={(r) => navigate(`/races/${r.id}`)}
       />
     );
@@ -128,7 +174,7 @@ function RaceDetailRoute({ races, racesLoading, attrRules, trendRules, userId })
       attrRules={attrRules}
       trendRules={trendRules}
       userId={userId}
-      onBack={() => navigate(`/history/${raceId.slice(0, 8)}`)}
+      onBack={() => navigate(`/history/${raceId.slice(0, 8)}/${fallback.race.place}`)}
       onNavigate={(r) => navigate(`/races/${r.id}`)}
     />
   );
@@ -269,9 +315,13 @@ export default function App() {
                   </p>
                 </div>
               ) : (
-                <RaceList races={races} attrRules={attrRules} trendRules={trendRules} onSelect={(r) => navigate(`/races/${r.id}`)} />
+                <MeetingRoute races={races} racesLoading={racesLoading} attrRules={attrRules} trendRules={trendRules} />
               )
             }
+          />
+          <Route
+            path="/meeting/:day/:place"
+            element={<MeetingRoute races={races} racesLoading={racesLoading} attrRules={attrRules} trendRules={trendRules} />}
           />
           <Route
             path="/races/:raceId"
@@ -288,6 +338,10 @@ export default function App() {
           <Route path="/history" element={<PastMeetingList />} />
           <Route
             path="/history/:day"
+            element={<HistoryDayRoute attrRules={attrRules} trendRules={trendRules} />}
+          />
+          <Route
+            path="/history/:day/:place"
             element={<HistoryDayRoute attrRules={attrRules} trendRules={trendRules} />}
           />
           <Route
