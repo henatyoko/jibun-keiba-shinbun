@@ -15,7 +15,6 @@ import {
   jockeyAbandonmentAdjustment,
   paddockAdjustment,
   computeMarks,
-  suggestBettingPattern,
 } from "../lib/scoring";
 import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
 import { fetchAiNotes } from "../lib/aiNotesRepository";
@@ -47,6 +46,16 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     setSortMode("score");
     setShareText(null);
   }, [race.id]);
+
+  // 日付・レース番号・レース名をページタイトルに反映する(SEO・タブ判別用)
+  useEffect(() => {
+    const dateLabel = race.date?.split(" ")[0] || "";
+    const raceNo = race.raceNumber ? `${race.raceNumber}R` : "";
+    document.title = `${dateLabel} ${race.place}${raceNo} ${race.name} | じぶん競馬新聞`;
+    return () => {
+      document.title = "じぶん競馬新聞";
+    };
+  }, [race]);
 
   // 同じ開催日・同じ競馬場のレースをレース番号順に並べ、プルダウン移動に使う。
   const siblingRaces = useMemo(() => {
@@ -284,13 +293,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
       .sort((a, b) => a.result - b.result);
   }, [scored, race.isPastReview]);
 
-  // 過去レース(振り返り)は結果が確定済みで馬券の買い方提案が意味を持たないため、
-  // 未来のレースの時だけ出す。
-  const bettingSuggestion = useMemo(() => {
-    if (race.isPastReview || loadingPast || computedMarks.noDifferentiation) return null;
-    return suggestBettingPattern(scored);
-  }, [race.isPastReview, scored, loadingPast, computedMarks.noDifferentiation]);
-
   // 印(◎○▲△穴)をテキストにまとめる。結果確定済みなら着順・的中数も添える。
   // navigator.share/clipboardは環境によって権限や対応状況が違い、失敗すると
   // 何も起きたように見えなくなる(実際にユーザーから「押しても反応が無い」と報告あり)ため、
@@ -521,19 +523,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               </span>
             </div>
           ))}
-        </div>
-      )}
-      {bettingSuggestion && (
-        <div className="mb-3 px-3 py-2 text-xs" style={{ background: PAPER_CARD, border: `1px solid ${INK}`, color: INK }}>
-          <span className="font-bold" style={{ fontFamily: "'Shippori Mincho', serif" }}>
-            {bettingSuggestion.pattern}
-          </span>
-          <span className="ml-1.5">{bettingSuggestion.label}</span>
-          {bettingSuggestion.detail && (
-            <span className="block mt-0.5" style={{ color: MUTED }}>
-              {bettingSuggestion.detail}
-            </span>
-          )}
         </div>
       )}
       <div className="flex gap-2 mb-3">
