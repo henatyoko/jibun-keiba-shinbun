@@ -30,9 +30,18 @@ export default function Masthead({ raceCount, userEmail, onLogout }) {
               </div>
             </div>
           </button>
-          <span className="text-[0.625rem]" style={{ color: INK, opacity: 0.7, fontFamily: "'Shippori Mincho', serif" }}>
-            号外
-          </span>
+          <div className="text-right shrink-0">
+            <div className="text-[0.625rem]" style={{ color: INK, opacity: 0.7, fontFamily: "'Shippori Mincho', serif" }}>
+              号外
+            </div>
+            <a
+              href="https://keiba.henatyoko.com/chiho/"
+              className="text-[0.625rem] underline"
+              style={{ color: INK, opacity: 0.7 }}
+            >
+              地方版へ→
+            </a>
+          </div>
         </div>
         {userEmail && (
           <div className="flex items-center justify-end gap-2 text-[0.625rem] mt-0.5" style={{ color: INK, opacity: 0.7 }}>
