@@ -293,14 +293,16 @@ export function baseScoreFromPastRaces(pastRaces, currentRaceCode) {
 }
 
 // スコア済みの馬一覧(num, rank, total, hasPastData, appliedを持つ)から印を判定する。
-// ◎○▲はスコア上位固定、△は3位との得点差が僅かな馬(最大4頭まで、僅差の近い順)、
+// ◎○▲はスコア上位固定、△は3位との得点差が僅かな馬(最大3頭まで、僅差の近い順)、
 // 穴は機械的に5位固定にせず「得点は低いが加点材料がある馬」の中で最高得点の馬(同点なら全員)に付ける。
 // 過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって紛らわしいため
 // 印を一切付けない(noDifferentiation)。
 // 新馬戦など全馬が基礎点70前後に団子状態の時、閾値だけだと△が全馬に付いてしまうため、
-// 頭数の上限(MAX_TRIANGLE)も設けて絞る。
+// 頭数の上限(MAX_TRIANGLE)も設けて絞る。90日分の実データ検証で、4頭目だけ的中率13%・
+// 複勝ROI43%と極端に悪く全体の足を引っ張っていたため、3頭までに絞った(全体的中率+1.0pt、
+// 複勝ROI+2.9pt改善を確認済み)。
 const TRIANGLE_THRESHOLD = 3;
-const MAX_TRIANGLE = 4;
+const MAX_TRIANGLE = 3;
 
 // 印はhorseId(ketto_toroku_bango)を内部キーに計算する。枠番確定前(木曜〜金曜昼)は
 // 出走馬の馬番(num)が全馬"00"のまま届くため、numをキーにすると印が衝突して
