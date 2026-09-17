@@ -371,18 +371,22 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         </button>
         <div className="flex-1" />
         {sameDayPlaces.length > 1 && (
-          <select
-            value={race.place}
-            onChange={(e) => handlePlaceChange(e.target.value)}
-            className="px-2 py-2 text-sm font-bold"
-            style={{ color: INK, border: `1px solid ${INK}`, background: PAPER_CARD }}
-          >
+          <div className="flex gap-1">
             {sameDayPlaces.map((p) => (
-              <option key={p} value={p}>
+              <button
+                key={p}
+                onClick={() => handlePlaceChange(p)}
+                className="px-2 py-2 text-sm font-bold"
+                style={{
+                  color: race.place === p ? PAPER_CARD : INK,
+                  background: race.place === p ? INK : PAPER_CARD,
+                  border: `1px solid ${INK}`,
+                }}
+              >
                 {p}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         )}
         {siblingRaces.length > 1 && (
           <select

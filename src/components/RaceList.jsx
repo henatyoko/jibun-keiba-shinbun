@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import GradeChip from "./GradeChip";
 import { computeMarkAccuracy } from "../lib/markAccuracyRepository";
 import { PAPER, PAPER_CARD, INK, RED, MUTED } from "../lib/colors";
@@ -115,25 +115,22 @@ export default function RaceList({
       )}
 
       {places.length > 1 && (
-        <div className="mb-4 relative inline-block">
-          <select
-            value={place ?? ""}
-            onChange={(e) => onPlaceChange?.(e.target.value)}
-            className="appearance-none pl-3 pr-8 py-1.5 text-sm font-semibold"
-            style={{
-              background: INK,
-              color: PAPER,
-              border: `1px solid ${INK}`,
-              fontFamily: "'Shippori Mincho', serif",
-            }}
-          >
-            {places.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={16} color={PAPER} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
+        <div className="flex gap-2 mb-4 overflow-x-auto">
+          {places.map((p) => (
+            <button
+              key={p}
+              onClick={() => onPlaceChange?.(p)}
+              className="px-3 py-1.5 text-sm font-semibold shrink-0"
+              style={{
+                background: place === p ? INK : "transparent",
+                color: place === p ? PAPER : INK,
+                border: `1px solid ${place === p ? INK : MUTED}`,
+                fontFamily: "'Shippori Mincho', serif",
+              }}
+            >
+              {p}
+            </button>
+          ))}
         </div>
       )}
 
