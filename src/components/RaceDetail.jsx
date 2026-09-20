@@ -425,6 +425,31 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         {race.place}
         {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
       </p>
+      {top3Actual.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {top3Actual.map((h) => (
+            <div key={h.horseId} className="flex items-center gap-1.5 px-2 py-1" style={{ border: `1px solid ${INK}` }}>
+              <span
+                className="font-black text-sm"
+                style={{ color: h.result === 1 ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
+              >
+                {h.result}着
+              </span>
+              <span className="text-xs font-bold" style={{ color: INK }}>
+                {h.num || "-"} {h.name}
+              </span>
+              {h.ninki != null && (
+                <span className="text-[0.625rem]" style={{ color: MUTED }}>
+                  {h.ninki}人気
+                </span>
+              )}
+              <span className="text-xs font-bold" style={{ color: MUTED, fontFamily: "'Shippori Mincho', serif" }}>
+                {marksByHorseId[h.horseId] || "無印"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
       {!loadingPast && !computedMarks.noDifferentiation && (
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3 px-3 py-2" style={{ background: PAPER_CARD, border: `1.5px solid ${INK}` }}>
           {MARKS.flatMap((m) => scored.filter((h) => marksByHorseId[h.horseId] === m)).map((h) => (
@@ -508,31 +533,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               </button>
             )}
           </div>
-        </div>
-      )}
-      {top3Actual.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {top3Actual.map((h) => (
-            <div key={h.horseId} className="flex items-center gap-1.5 px-2 py-1" style={{ border: `1px solid ${INK}` }}>
-              <span
-                className="font-black text-sm"
-                style={{ color: h.result === 1 ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
-              >
-                {h.result}着
-              </span>
-              <span className="text-xs font-bold" style={{ color: INK }}>
-                {h.num || "-"} {h.name}
-              </span>
-              {h.ninki != null && (
-                <span className="text-[0.625rem]" style={{ color: MUTED }}>
-                  {h.ninki}人気
-                </span>
-              )}
-              <span className="text-xs font-bold" style={{ color: MUTED, fontFamily: "'Shippori Mincho', serif" }}>
-                {marksByHorseId[h.horseId] || "無印"}
-              </span>
-            </div>
-          ))}
         </div>
       )}
       <div className="flex gap-2 mb-3">
