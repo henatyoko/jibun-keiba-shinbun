@@ -295,14 +295,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     return [...scored].sort((a, b) => a.rank - b.rank);
   }, [scored, sortMode]);
 
-  // 振り返り表示中、実際の上位3頭を着順順に並べ、予想順位と見比べやすくする
-  const top3Actual = useMemo(() => {
-    if (!race.isPastReview) return [];
-    return scored
-      .filter((h) => h.result && h.result <= 3)
-      .sort((a, b) => a.result - b.result);
-  }, [scored, race.isPastReview]);
-
   // 印(◎○▲△穴)をテキストにまとめる。結果確定済みなら着順・的中数も添える。
   // navigator.share/clipboardは環境によって権限や対応状況が違い、失敗すると
   // 何も起きたように見えなくなる(実際にユーザーから「押しても反応が無い」と報告あり)ため、
@@ -438,31 +430,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                 {p.amount.toLocaleString()}円
               </em>
             </span>
-          ))}
-        </div>
-      )}
-      {top3Actual.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {top3Actual.map((h) => (
-            <div key={h.horseId} className="flex items-center gap-1.5 px-2 py-1" style={{ border: `1px solid ${INK}` }}>
-              <span
-                className="font-black text-sm"
-                style={{ color: h.result === 1 ? RED : INK, fontFamily: "'Shippori Mincho', serif" }}
-              >
-                {h.result}着
-              </span>
-              <span className="text-xs font-bold" style={{ color: INK }}>
-                {h.num || "-"} {h.name}
-              </span>
-              {h.ninki != null && (
-                <span className="text-[0.625rem]" style={{ color: MUTED }}>
-                  {h.ninki}人気
-                </span>
-              )}
-              <span className="text-xs font-bold" style={{ color: MUTED, fontFamily: "'Shippori Mincho', serif" }}>
-                {marksByHorseId[h.horseId] || "無印"}
-              </span>
-            </div>
           ))}
         </div>
       )}
