@@ -32,6 +32,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [notesByHorse, setNotesByHorse] = useState({});
   const [paddockByNum, setPaddockByNum] = useState({});
   const [winPayout, setWinPayout] = useState(null);
+  const [payoutSummary, setPayoutSummary] = useState([]);
   const [pedigreeStatsById, setPedigreeStatsById] = useState({});
   const [snapshot, setSnapshot] = useState(null);
   const [loadingPast, setLoadingPast] = useState(true);
@@ -120,11 +121,14 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     load();
 
     if (race.isPastReview) {
-      fetchRacePayouts(race.id).then(({ win }) => {
-        if (!cancelled) setWinPayout(win);
+      fetchRacePayouts(race.id).then(({ win, payouts }) => {
+        if (cancelled) return;
+        setWinPayout(win);
+        setPayoutSummary(payouts);
       });
     } else {
       setWinPayout(null);
+      setPayoutSummary([]);
     }
 
     return () => {
@@ -425,6 +429,18 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         {race.place}
         {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
       </p>
+      {payoutSummary.length > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 px-3 py-2 text-xs" style={{ background: PAPER_CARD, border: `1.5px solid ${INK}` }}>
+          {payoutSummary.map((p, i) => (
+            <span key={i} style={{ color: INK }}>
+              <b style={{ fontFamily: "'Shippori Mincho', serif" }}>{p.label}</b> {p.combo}{" "}
+              <em className="not-italic font-bold" style={{ color: RED }}>
+                {p.amount.toLocaleString()}円
+              </em>
+            </span>
+          ))}
+        </div>
+      )}
       {top3Actual.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
           {top3Actual.map((h) => (
