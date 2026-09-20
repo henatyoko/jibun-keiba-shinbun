@@ -618,6 +618,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
                 <div className="text-[0.625rem]" style={{ color: MUTED }}>
                   {h.age}歳・{h.jockey}・{h.sire}
                   {h.trainer ? `・${h.trainer}厩舎` : ""}
+                  {h.runningStyle ? `・脚質:${h.runningStyle}` : ""}
                 </div>
                 {h.past && h.past.length > 0 && (
                   <div className="text-[0.625rem] mt-0.5 flex items-center gap-1" style={{ color: MUTED }}>
