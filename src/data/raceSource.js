@@ -172,7 +172,9 @@ async function assembleRaces(raceRows, isPastReview) {
     oddsPromise,
     supabase
       .from("kyosoba_master2")
-      .select(`ketto_toroku_bango, ketto1_bamei, ketto1_hanshoku_toroku_bango, ketto5_hanshoku_toroku_bango, seisanshamei_hojinkaku_nashi, ${DISTANCE_BUCKET_COLUMNS}`)
+      .select(
+        `ketto_toroku_bango, ketto1_bamei, ketto1_hanshoku_toroku_bango, ketto5_hanshoku_toroku_bango, seisanshamei_hojinkaku_nashi, ${DISTANCE_BUCKET_COLUMNS}, kyakushitsu_keiko_nige, kyakushitsu_keiko_senko, kyakushitsu_keiko_sashi, kyakushitsu_keiko_oikomi`
+      )
       .in("ketto_toroku_bango", horseIds),
   ]);
 
@@ -188,6 +190,18 @@ async function assembleRaces(raceRows, isPastReview) {
   const distanceStatsByHorseId = Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, extractDistanceStats(s)]));
   const pedigreeIdsByHorseId = Object.fromEntries(
     (sireRows || []).map((s) => [s.ketto_toroku_bango, { sireId: s.ketto1_hanshoku_toroku_bango, damsireId: s.ketto5_hanshoku_toroku_bango }])
+  );
+  // 逃げ/先行の合計を「前有り率」として持たせる(重馬場補正で使う)。
+  // サンプルが少なすぎる馬(3走未満)は補正の対象外にしたいので件数も持たせる。
+  const styleByHorseId = Object.fromEntries(
+    (sireRows || []).map((s) => {
+      const nige = Number(s.kyakushitsu_keiko_nige) || 0;
+      const senko = Number(s.kyakushitsu_keiko_senko) || 0;
+      const sashi = Number(s.kyakushitsu_keiko_sashi) || 0;
+      const oikomi = Number(s.kyakushitsu_keiko_oikomi) || 0;
+      const total = nige + senko + sashi + oikomi;
+      return [s.ketto_toroku_bango, { forwardRatio: total > 0 ? (nige + senko) / total : null, styleSampleSize: total }];
+    })
   );
 
   const entriesByRaceCode = {};
@@ -212,6 +226,8 @@ async function assembleRaces(raceRows, isPastReview) {
           distanceStats: distanceStatsByHorseId[h.ketto_toroku_bango] || null,
           sireId: pedigreeIdsByHorseId[h.ketto_toroku_bango]?.sireId || null,
           damsireId: pedigreeIdsByHorseId[h.ketto_toroku_bango]?.damsireId || null,
+          forwardRatio: styleByHorseId[h.ketto_toroku_bango]?.forwardRatio ?? null,
+          styleSampleSize: styleByHorseId[h.ketto_toroku_bango]?.styleSampleSize ?? 0,
           jockey: h.kishumei_ryakusho?.trim(),
           trainer: h.chokyoshimei_ryakusho?.trim() || null,
           owner: h.banushimei_hojinkaku_nashi?.trim() || null,

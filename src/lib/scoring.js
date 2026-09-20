@@ -14,6 +14,18 @@ export function courseBiasAdjustment(waku, place, distanceStr) {
   return { label: bias.label, score };
 }
 
+// ユーザーが「今日は雨・重馬場で先行有利」と手動でオンにした時だけ効く補正。
+// 逃げ・先行の合計比率(forwardRatio)が高い馬を加点、低い(差し・追込)馬を減点する。
+// サンプルが3走未満の馬は判断材料が薄いので対象外。90日分のバックテストで
+// 全体+0.6pt程度とはっきりした効果ではなかったため、常時自動適用はせず、
+// ユーザー自身がその日の馬場を見て判断するスイッチとしてのみ使う。
+export function wetTrackAdjustment(enabled, forwardRatio, styleSampleSize) {
+  if (!enabled || forwardRatio == null || !Number.isFinite(styleSampleSize) || styleSampleSize < 3) return null;
+  const score = Math.max(-2, Math.min(2, Math.round((forwardRatio - 0.5) * 4)));
+  if (score === 0) return null;
+  return { label: `重馬場補正・前有り${Math.round(forwardRatio * 100)}%`, score };
+}
+
 // ハンデ戦限定で、斤量が同レースの平均より軽いほど加点、重いほど減点する補正を返す。
 // ハンデ戦は競走馬ごとにJRAが実力を見て個別に斤量を決めるため、軽ハンデ=実力を
 // 低く見られている=荒れた時の価値が高い、という読み方をする。ハンデ戦以外はnull。

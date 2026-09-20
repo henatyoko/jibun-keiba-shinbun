@@ -14,6 +14,7 @@ import {
   shadaiLayoffAdjustment,
   jockeyAbandonmentAdjustment,
   paddockAdjustment,
+  wetTrackAdjustment,
   computeMarks,
 } from "../lib/scoring";
 import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
@@ -38,6 +39,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [shareCopied, setShareCopied] = useState(false);
   const [shareCopyFailed, setShareCopyFailed] = useState(false);
   const [shareText, setShareText] = useState(null);
+  const [wetTrackMode, setWetTrackMode] = useState(false);
   const canNativeShare = typeof navigator !== "undefined" && Boolean(navigator.share);
 
   // レースが切り替わった時、前のレースでのスクロール位置や並び順を引き継がない
@@ -45,6 +47,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     window.scrollTo(0, 0);
     setSortMode("score");
     setShareText(null);
+    setWetTrackMode(false);
   }, [race.id]);
 
   // 日付・レース番号・レース名をページタイトルに反映する(SEO・タブ判別用)
@@ -212,6 +215,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           jvPast?.[0]?.kishumei_ryakusho?.trim() || null,
           raceJockeyContext
         );
+        const wetTrack = wetTrackAdjustment(wetTrackMode, h.forwardRatio, h.styleSampleSize);
         const extra = [
           ...(aiAdjustment !== 0 ? [{ label: "AI評価", score: aiAdjustment }] : []),
           ...(bias ? [{ label: bias.label, score: bias.score }] : []),
@@ -221,6 +225,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           ...(handicapDrop ? [{ label: handicapDrop.label, score: handicapDrop.score }] : []),
           ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
           ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
+          ...(wetTrack ? [{ label: wetTrack.label, score: wetTrack.score }] : []),
         ];
         const extraTotal =
           aiAdjustment +
@@ -230,7 +235,8 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           (handicap?.score ?? 0) +
           (handicapDrop?.score ?? 0) +
           (abandonment?.score ?? 0) +
-          (shadaiLayoff?.score ?? 0);
+          (shadaiLayoff?.score ?? 0) +
+          (wetTrack?.score ?? 0);
         const hasPastData = Boolean(jvPast && jvPast.length > 0);
         return {
           ...h,
@@ -248,7 +254,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     const byScore = [...base].sort((a, b) => b.total - a.total);
     const rankByHorseId = new Map(byScore.map((h, idx) => [h.horseId, idx]));
     return base.map((h) => ({ ...h, rank: rankByHorseId.get(h.horseId) }));
-  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum, pedigreeStatsById, snapshot]);
+  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum, pedigreeStatsById, snapshot, wetTrackMode]);
 
   // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
   // 紛らわしいため印・強調表示を出さない。読み込み中も未確定の印を出さない。
@@ -548,6 +554,19 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           </button>
         ))}
       </div>
+      {!race.isPastReview && (
+        <button
+          onClick={() => setWetTrackMode((v) => !v)}
+          className="w-full text-left px-3 py-2 mb-3 text-xs font-semibold"
+          style={{
+            background: wetTrackMode ? INK : PAPER_CARD,
+            color: wetTrackMode ? PAPER_CARD : INK,
+            border: `1px solid ${INK}`,
+          }}
+        >
+          {wetTrackMode ? "☑" : "☐"} 今日は雨・重馬場で先行有利(脚質で補正)
+        </button>
+      )}
       <div className="relative">
         {loadingPast && (
           <div
