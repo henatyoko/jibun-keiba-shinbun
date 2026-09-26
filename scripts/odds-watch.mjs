@@ -7,9 +7,13 @@
 // オプション:
 //   --min-yen 1000000  1回の更新でこの金額以上が1頭に入ったら「大口」扱い(既定100万円)
 //   --drop 0.25        約10分前と比べてオッズがこの割合以上下がったら「急落」扱い(既定25%)
+//   --slide 0.2        締切前の約10分間でオッズが下がり続け、この割合以上下がったら「じわじわ下落」扱い(既定20%)
 //   --window 20        発走何分前から監視を始めるか(既定20分)
 //   --port 5178        画面のポート番号
 //   --no-open          起動時にブラウザを自動で開かない
+//
+// JRAの発売締切は発走2分前。公式発表時刻が締切より前のアラートだけが「締切前(買える)」で、
+// Macの通知はそれだけに出す。締切後に分かった動きは画面に「締切後」として残す。
 //
 // 馬ごとの投票額はnetkeibaが返す単勝票数(h_tansho)とオッズからの推定値。
 // 取得したオッズは odds-watch-data/YYYYMMDD.csv に残す(あとで「本当に勝つのか」を検証する材料)。
@@ -31,6 +35,8 @@ const opt = (name, def) => {
 };
 const MIN_YEN = Number(opt("min-yen", 1_000_000));
 const DROP = Number(opt("drop", 0.25));
+const SLIDE = Number(opt("slide", 0.2));
+const CLOSE_BEFORE_POST_MIN = 2;
 const WINDOW_MIN = Number(opt("window", 20));
 const PORT = Number(opt("port", 5178));
 const SINGLE_RACE = opt("race", null);
@@ -139,11 +145,35 @@ function notify(title, message) {
   execFile("osascript", ["-e", `display notification "${esc(message)}" with title "${esc(title)}" sound name "Glass"`]);
 }
 
-// --- 前回・約10分前のスナップショットと比べて、大口/急落を検出 ---
+// netkeibaの公式発表時刻("2026-09-26 12:25:10")はローカル時刻
+const parseAt = (at) => new Date(at.replace(" ", "T"));
+const closeTime = (race) => new Date(race.post.getTime() - CLOSE_BEFORE_POST_MIN * 60 * 1000);
+
+// 締切前に、直近約10分の最高値からSLIDE以上下がり、しかも直近3回の更新で一度も上がっていない(=下がり続けている)
+function detectSlide(race, cur, umaban) {
+  if (race.slideAlerted.has(umaban)) return null;
+  const window = race.snaps.filter((s) => parseAt(cur.at) - parseAt(s.at) <= 10 * 60 * 1000 && s.horses[umaban]);
+  const series = window.map((s) => s.horses[umaban].odds);
+  if (series.length < 4) return null;
+  const peak = Math.max(...series);
+  const nowOdds = series.at(-1);
+  const lastSteps = series.slice(-4);
+  const stillFalling = lastSteps.every((o, i) => i === 0 || o <= lastSteps[i - 1]) && nowOdds < lastSteps[0];
+  if (!stillFalling || 1 - nowOdds / peak < SLIDE) return null;
+  race.slideAlerted.add(umaban);
+  return {
+    type: "slide",
+    umaban,
+    text: `じわじわ下落 ${peak}→${nowOdds}倍 (締切前の約10分で${Math.round((1 - nowOdds / peak) * 100)}%下落・下がり続けている)`,
+  };
+}
+
+// --- 前回・約10分前のスナップショットと比べて、大口/急落/じわじわ下落を検出 ---
 function detect(race, prev, cur) {
   const alerts = [];
   const poolIn = cur.pool - prev.pool;
-  const tenMinAgo = race.snaps.filter((s) => new Date(cur.at) - new Date(s.at) >= 9 * 60 * 1000).at(-1);
+  const tenMinAgo = race.snaps.filter((s) => parseAt(cur.at) - parseAt(s.at) >= 9 * 60 * 1000).at(-1);
+  const phase = parseAt(cur.at) < closeTime(race) ? "pre" : "post";
 
   for (const [umaban, h] of Object.entries(cur.horses)) {
     const p = prev.horses[umaban];
@@ -167,8 +197,12 @@ function detect(race, prev, cur) {
         text: `急落 ${base.odds}→${h.odds}倍 (約10分で${Math.round((1 - h.odds / base.odds) * 100)}%下落)`,
       });
     }
+    if (phase === "pre") {
+      const slide = detectSlide(race, cur, umaban);
+      if (slide) alerts.push(slide);
+    }
   }
-  return alerts;
+  return alerts.map((a) => ({ ...a, phase }));
 }
 
 function logCsv(race, snap) {
@@ -199,7 +233,7 @@ function restoreFromCsv(races) {
     });
   for (const [raceId, snaps] of snapsByRace) {
     const race = byRace.get(raceId);
-    for (const snap of snaps.values()) {
+    for (const snap of [...snaps.values()].sort((a, b) => a.at.localeCompare(b.at))) {
       addEstimates(snap.horses, snap.pool);
       const prev = race.snaps.at(-1);
       race.snaps.push(snap);
@@ -222,8 +256,12 @@ async function poll(race, names) {
   for (const a of detect(race, prev, snap)) {
     race.alerts.push({ ...a, at: snap.at });
     const name = names.get(`${race.id}_${a.umaban}`) ?? "";
-    console.log(`\x1b[41m\x1b[97m 【${race.label}】${a.umaban}番${name} ${a.text} \x1b[0m`);
-    notify(`${race.label} ${race.name}`, `${a.umaban}番${name} ${a.text}`);
+    if (a.phase === "pre") {
+      console.log(`\x1b[41m\x1b[97m 【${race.label} 締切前】${a.umaban}番${name} ${a.text} \x1b[0m`);
+      notify(`${race.label} ${race.name} 締切前`, `${a.umaban}番${name} ${a.text}`);
+    } else {
+      console.log(`\x1b[90m 【${race.label} 締切後】${a.umaban}番${name} ${a.text} \x1b[0m`);
+    }
   }
 }
 
@@ -237,6 +275,7 @@ function raceState(race, names) {
     label: race.label,
     name: race.name,
     post: race.post.toISOString(),
+    close: closeTime(race).toISOString(),
     state,
     times: race.snaps.map((s) => s.at),
     pools: race.snaps.map((s) => s.pool),
@@ -259,7 +298,7 @@ function startServer(races, names) {
       res.end(
         JSON.stringify({
           now: now().toISOString(),
-          settings: { minYen: MIN_YEN, drop: DROP, windowMin: WINDOW_MIN },
+          settings: { minYen: MIN_YEN, drop: DROP, slide: SLIDE, windowMin: WINDOW_MIN },
           races: races.map((r) => raceState(r, names)),
         })
       );
@@ -296,10 +335,10 @@ async function main() {
     return;
   }
   const names = await fetchHorseNames(races.map((r) => r.id));
-  races.forEach((r) => Object.assign(r, { snaps: [], alerts: [], dropAlerted: new Set(), lastPoll: 0, done: false }));
+  races.forEach((r) => Object.assign(r, { snaps: [], alerts: [], dropAlerted: new Set(), slideAlerted: new Set(), lastPoll: 0, done: false }));
   if (!SINGLE_RACE) restoreFromCsv(races);
   console.log(
-    `${races.length}レースを監視します(発走${WINDOW_MIN}分前から / 大口=${man(MIN_YEN)}以上 / 急落=${DROP * 100}%以上)。Ctrl+Cで終了`
+    `${races.length}レースを監視します(発走${WINDOW_MIN}分前から / 大口=${man(MIN_YEN)}以上 / 急落=${DROP * 100}%以上 / じわじわ下落=${SLIDE * 100}%以上)。Ctrl+Cで終了`
   );
   startServer(races, names);
 

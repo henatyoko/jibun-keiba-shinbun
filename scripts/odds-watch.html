@@ -77,6 +77,10 @@
   .badge { font-size: 11px; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
   .badge.watching { background: var(--accent); color: #fff; }
   .badge.alert { background: var(--alert); color: #fff; }
+  .badge.post { background: var(--border); color: var(--text-2); }
+  .phase { font-size: 11px; padding: 1px 6px; border-radius: 4px; margin-left: 4px; font-weight: 600; }
+  .phase.pre { background: var(--alert); color: #fff; }
+  .phase.post { background: var(--border); color: var(--text-2); }
 
   .main { padding: 16px 18px; min-height: 400px; }
   .race-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -94,6 +98,7 @@
   td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
   tr.flag td { background: var(--alert-soft); }
   .flag-icon { color: var(--alert); font-weight: 700; margin-right: 2px; }
+  .flag-icon.post { color: var(--text-3); }
   .down { color: var(--good); font-weight: 600; }
   .up { color: var(--text-3); }
   .bar-cell { width: 34%; min-width: 120px; }
@@ -113,6 +118,7 @@
   .alert-item:hover { background: var(--alert-soft); }
   .alert-item .top { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-2); }
   .alert-item .kind { color: var(--alert); font-weight: 700; }
+  .alert-item.post .kind, .alert-item.post .body { color: var(--text-3); }
   .alert-item .body { margin-top: 3px; }
   .alert-item.fresh { animation: flash 2s ease-out; }
   @keyframes flash { from { background: var(--alert-soft); } to { background: transparent; } }
@@ -146,6 +152,8 @@ let firstLoad = true;
 const man = (yen) => `${Math.round(yen / 10000).toLocaleString()}万円`;
 const hm = (iso) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 const hms = (s) => s.slice(11, 19);
+const KIND = { big: "大口", drop: "急落", slide: "じわじわ下落" };
+const PHASE = { pre: "締切前(買える)", post: "締切後" };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 function autoRace() {
@@ -162,7 +170,11 @@ function renderList() {
       <span class="t">${hm(r.post)}</span>
       <span class="n">${esc(r.label)}<small>${esc(r.name)}</small></span>
       <span>
-        ${r.alerts.length ? `<span class="badge alert">⚠ ${r.alerts.length}</span>` : ""}
+        ${(() => {
+          const pre = r.alerts.filter((a) => a.phase === "pre").length;
+          const post = r.alerts.length - pre;
+          return (pre ? `<span class="badge alert">⚠ ${pre}</span>` : "") + (post ? `<span class="badge post" title="締切後のアラート">${post}</span>` : "");
+        })()}
         ${r.state === "watching" ? `<span class="badge watching">監視中</span>` : ""}
       </span>
     </button>`).join("");
@@ -194,7 +206,7 @@ function renderMain() {
   const head = `
     <div class="race-head">
       <h3>${esc(race.label)} ${esc(race.name)}</h3>
-      <span class="sub">${hm(race.post)}発走 ・ ${countdown}</span>
+      <span class="sub">${hm(race.post)}発走(締切${hm(race.close)}) ・ ${countdown}</span>
     </div>`;
 
   if (race.times.length === 0) {
@@ -205,7 +217,8 @@ function renderMain() {
 
   const pool = race.pools.at(-1);
   const poolGain = pool - race.pools[0];
-  const flagged = new Set(race.alerts.map((a) => a.umaban));
+  const flaggedPre = new Set(race.alerts.filter((a) => a.phase === "pre").map((a) => a.umaban));
+  const flaggedPost = new Set(race.alerts.filter((a) => a.phase !== "pre").map((a) => a.umaban));
   const rows = race.horses.map((h) => {
     const first = h.est.find((v) => v != null);
     const firstOdds = h.odds.find((v) => v != null);
@@ -218,7 +231,8 @@ function renderMain() {
     <div class="stats">
       <div class="stat"><div class="k">単勝売上</div><div class="v">${man(pool)}</div></div>
       <div class="stat"><div class="k">監視開始から増えた分</div><div class="v">+${man(poolGain)}<small>${hms(race.times[0])}〜${hms(race.times.at(-1))}</small></div></div>
-      <div class="stat"><div class="k">アラート</div><div class="v">${race.alerts.length}<small>件</small></div></div>
+      <div class="stat"><div class="k">締切前アラート</div><div class="v">${flaggedPre.size}<small>頭</small></div></div>
+      <div class="stat"><div class="k">締切後アラート</div><div class="v">${flaggedPost.size}<small>頭</small></div></div>
     </div>
     <p class="note">「入った額」は単勝売上とオッズからの推定。監視開始から多く入った順に並べています。</p>
     <table>
@@ -229,10 +243,11 @@ function renderMain() {
       </tr></thead>
       <tbody>${rows.map((r) => {
         const change = r.firstOdds && r.lastOdds ? r.lastOdds / r.firstOdds - 1 : 0;
-        const isFlag = flagged.has(r.umaban);
+        const isFlag = flaggedPre.has(r.umaban);
+        const isPostOnly = !isFlag && flaggedPost.has(r.umaban);
         const w = Math.max(0, (r.gain / maxGain) * 100);
         return `<tr class="${isFlag ? "flag" : ""}">
-          <td class="l">${isFlag ? `<span class="flag-icon" title="アラートあり">⚠</span>` : ""}${Number(r.umaban)}</td>
+          <td class="l">${isFlag ? `<span class="flag-icon" title="締切前のアラートあり">⚠</span>` : isPostOnly ? `<span class="flag-icon post" title="締切後のアラートのみ">◷</span>` : ""}${Number(r.umaban)}</td>
           <td class="l">${esc(r.name)}</td>
           <td>${r.ninki ?? ""}</td>
           <td class="l">${spark(r.odds, race.times)}</td>
@@ -258,9 +273,10 @@ function renderFeed() {
     const fresh = !firstLoad && !seenAlerts.has(key);
     seenAlerts.add(key);
     const horse = a.race.horses.find((h) => h.umaban === a.umaban);
-    return `<div class="alert-item ${fresh ? "fresh" : ""}" data-id="${a.race.id}">
-      <div class="top"><span><span class="kind">⚠ ${a.type === "big" ? "大口" : "急落"}</span> ${esc(a.race.label)}</span><span>${hms(a.at)}</span></div>
-      <div class="body">${Number(a.umaban)}番 ${esc(horse?.name ?? "")}<br>${esc(a.text.replace(/^(大口|急落) /, ""))}</div>
+    const phase = a.phase === "pre" ? "pre" : "post";
+    return `<div class="alert-item ${phase} ${fresh ? "fresh" : ""}" data-id="${a.race.id}">
+      <div class="top"><span><span class="kind">${phase === "pre" ? "⚠" : "◷"} ${KIND[a.type] ?? a.type}</span> ${esc(a.race.label)}<span class="phase ${phase}">${PHASE[phase]}</span></span><span>${hms(a.at)}</span></div>
+      <div class="body">${Number(a.umaban)}番 ${esc(horse?.name ?? "")}<br>${esc(a.text.replace(/^(大口|急落|じわじわ下落) /, ""))}</div>
     </div>`;
   }).join("");
   firstLoad = false;
@@ -270,7 +286,7 @@ function render() {
   if (!state) return;
   const s = state.settings;
   document.getElementById("settings").textContent =
-    `発走${s.windowMin}分前から監視 ・ 大口=${man(s.minYen)}以上 ・ 急落=約10分で${Math.round(s.drop * 100)}%以上`;
+    `発走${s.windowMin}分前から監視 ・ 大口=${man(s.minYen)}以上 ・ 急落=約10分で${Math.round(s.drop * 100)}%以上 ・ じわじわ下落=締切前に${Math.round(s.slide * 100)}%以上`;
   renderList();
   renderMain();
   renderFeed();
