@@ -268,6 +268,13 @@ function startServer(races, names) {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(page);
   });
+  server.on("error", (err) => {
+    if (err.code !== "EADDRINUSE") throw err;
+    console.error(
+      `ポート${PORT}が使用中です。別のターミナルでodds-watchが動いていないか確認して、そちらをCtrl+Cで止めてから起動し直してください。`
+    );
+    process.exit(1);
+  });
   server.listen(PORT, "127.0.0.1", () => {
     const url = `http://localhost:${PORT}`;
     console.log(`画面: ${url}`);
