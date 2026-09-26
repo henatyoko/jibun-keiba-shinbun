@@ -1,22 +1,26 @@
 // 開催日にMac上で動かし、JRA各レースの発走前だけnetkeibaの単勝オッズを定期取得して、
-// 「締切直前に大口が入った馬」「オッズが急落した馬」をターミナル表示+Macの通知で知らせる。
+// 「締切直前に大口が入った馬」「オッズが急落した馬」をブラウザ画面+Macの通知で知らせる。
 //
-//   npm run odds-watch                      … 今日の全レースを監視
+//   npm run odds-watch                      … 今日の全レースを監視(ブラウザで http://localhost:5178 が開く)
 //   npm run odds-watch -- --race 202606040811  … 1レースだけ今すぐ監視(動作確認用)
 //
 // オプション:
 //   --min-yen 1000000  1回の更新でこの金額以上が1頭に入ったら「大口」扱い(既定100万円)
 //   --drop 0.25        約10分前と比べてオッズがこの割合以上下がったら「急落」扱い(既定25%)
 //   --window 20        発走何分前から監視を始めるか(既定20分)
+//   --port 5178        画面のポート番号
+//   --no-open          起動時にブラウザを自動で開かない
 //
 // 馬ごとの投票額はnetkeibaが返す単勝票数(h_tansho)とオッズからの推定値。
 // 取得したオッズは odds-watch-data/YYYYMMDD.csv に残す(あとで「本当に勝つのか」を検証する材料)。
+// 途中で止めて起動し直しても、当日分はこのCSVから復元する。
 //
 // 注意: netkeibaの利用規約上、私的利用の範囲を超える利用は禁止されている。
 // 本人の私的利用のため、発走前の限られた時間だけ・1レースにつき1分(直前は30秒)間隔でのみ取得する。
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
+import { createServer } from "node:http";
 import * as cheerio from "cheerio";
 import { createClient } from "@supabase/supabase-js";
 
@@ -28,7 +32,9 @@ const opt = (name, def) => {
 const MIN_YEN = Number(opt("min-yen", 1_000_000));
 const DROP = Number(opt("drop", 0.25));
 const WINDOW_MIN = Number(opt("window", 20));
+const PORT = Number(opt("port", 5178));
 const SINGLE_RACE = opt("race", null);
+const AUTO_OPEN = !args.includes("--no-open");
 
 const HEADERS = {
   "User-Agent": "jibun-keiba-shinbun-scraper/1.0 (personal, low-frequency, private use)",
@@ -48,6 +54,7 @@ function todayStr() {
   const d = now();
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
 }
+const CSV_FILE = `odds-watch-data/${todayStr()}.csv`;
 
 // --- 今日のレース一覧(レースID・発走時刻・レース名)をnetkeibaから取得 ---
 async function fetchTodayRaces(kaisaiDate) {
@@ -73,15 +80,12 @@ async function fetchTodayRaces(kaisaiDate) {
     const [h, m] = time.split(":").map(Number);
     const post = now();
     post.setHours(h, m, 0, 0);
-    races.push({
-      id,
-      label: `${PLACES[id.slice(4, 6)] ?? id.slice(4, 6)}${Number(id.slice(10, 12))}R`,
-      name: $(li).find(".ItemTitle").text().trim(),
-      post,
-    });
+    races.push({ id, label: raceLabel(id), name: $(li).find(".ItemTitle").text().trim(), post });
   });
   return races.sort((a, b) => a.post - b.post);
 }
+
+const raceLabel = (id) => `${PLACES[id.slice(4, 6)] ?? id.slice(4, 6)}${Number(id.slice(10, 12))}R`;
 
 // 馬名はnetkeibaスクレイパーが保存しているrace_entriesから(無ければ馬番だけで表示)
 async function fetchHorseNames(raceIds) {
@@ -98,6 +102,12 @@ async function fetchHorseNames(raceIds) {
   } catch {
     return new Map();
   }
+}
+
+// 各馬の投票額 ≒ 単勝発売額 × (1/オッズ) / Σ(1/オッズ)  (控除率に依らない形で按分)
+function addEstimates(horses, pool) {
+  const invSum = Object.values(horses).reduce((s, h) => s + 1 / h.odds, 0);
+  for (const h of Object.values(horses)) h.est = (pool * (1 / h.odds)) / invSum;
 }
 
 // --- 単勝オッズ1回分を取得 ---
@@ -118,10 +128,8 @@ async function fetchOdds(raceId) {
     const o = Number(odds);
     if (o > 0) horses[umaban] = { odds: o, ninki: Number(ninki) };
   }
-  // 各馬の投票額 ≒ 単勝発売額 × (1/オッズ) / Σ(1/オッズ)  (控除率に依らない形で按分)
   const pool = Number(data.h_tansho) * 100;
-  const invSum = Object.values(horses).reduce((s, h) => s + 1 / h.odds, 0);
-  for (const h of Object.values(horses)) h.est = (pool * (1 / h.odds)) / invSum;
+  addEstimates(horses, pool);
   return { at: data.official_datetime, status: json.status, pool, horses };
 }
 
@@ -145,6 +153,7 @@ function detect(race, prev, cur) {
     // 大口: 一定額以上が入り、しかもそれまでの人気の割合(=普段入る割合)の2倍以上を1頭が吸った
     if (poolIn > 0 && inflow >= MIN_YEN && inflow / poolIn >= prevShare * 2) {
       alerts.push({
+        type: "big",
         umaban,
         text: `大口 +${man(inflow)} (この間の単勝売上の${Math.round((inflow / poolIn) * 100)}%) ${p.odds}→${h.odds}倍`,
       });
@@ -153,6 +162,7 @@ function detect(race, prev, cur) {
     if (base && 1 - h.odds / base.odds >= DROP && !race.dropAlerted.has(umaban)) {
       race.dropAlerted.add(umaban);
       alerts.push({
+        type: "drop",
         umaban,
         text: `急落 ${base.odds}→${h.odds}倍 (約10分で${Math.round((1 - h.odds / base.odds) * 100)}%下落)`,
       });
@@ -163,26 +173,39 @@ function detect(race, prev, cur) {
 
 function logCsv(race, snap) {
   if (!existsSync("odds-watch-data")) mkdirSync("odds-watch-data");
-  const file = `odds-watch-data/${todayStr()}.csv`;
-  if (!existsSync(file)) appendFileSync(file, "race_id,post_time,official_datetime,status,tansho_pool_yen,umaban,odds,ninki\n");
+  if (!existsSync(CSV_FILE)) appendFileSync(CSV_FILE, "race_id,post_time,official_datetime,status,tansho_pool_yen,umaban,odds,ninki\n");
   const post = `${pad(race.post.getHours())}:${pad(race.post.getMinutes())}`;
   const rows = Object.entries(snap.horses).map(
     ([u, h]) => `${race.id},${post},${snap.at},${snap.status},${snap.pool},${u},${h.odds},${h.ninki}`
   );
-  appendFileSync(file, rows.join("\n") + "\n");
+  appendFileSync(CSV_FILE, rows.join("\n") + "\n");
 }
 
-function printBoard(race, snap, names) {
-  const minsLeft = ((race.post - now()) / 60000).toFixed(1);
-  const first = race.snaps[0];
-  const movers = Object.entries(snap.horses)
-    .map(([u, h]) => ({ u, h, gain: h.est - (first.horses[u]?.est ?? h.est), from: first.horses[u]?.odds }))
-    .sort((a, b) => b.gain - a.gain)
-    .slice(0, 3)
-    .map(({ u, h, gain, from }) => `${u}${names.get(`${race.id}_${u}`) ?? ""} ${from}→${h.odds}倍(+${man(gain)})`);
-  console.log(
-    `${hhmmss(now())} ${race.label} ${race.name} 発走まで${minsLeft}分 単勝売上${man(snap.pool)} | 監視開始から多く入った馬: ${movers.join(" / ")}`
-  );
+// 起動し直したときに、当日のCSVからスナップショットを復元する(アラートも再計算するが通知は出さない)
+function restoreFromCsv(races) {
+  if (!existsSync(CSV_FILE)) return;
+  const byRace = new Map(races.map((r) => [r.id, r]));
+  const snapsByRace = new Map();
+  readFileSync(CSV_FILE, "utf8")
+    .split("\n")
+    .slice(1)
+    .forEach((line) => {
+      const [raceId, , at, status, pool, umaban, odds, ninki] = line.split(",");
+      if (!byRace.has(raceId) || !odds) return;
+      if (!snapsByRace.has(raceId)) snapsByRace.set(raceId, new Map());
+      const snaps = snapsByRace.get(raceId);
+      if (!snaps.has(at)) snaps.set(at, { at, status, pool: Number(pool), horses: {} });
+      snaps.get(at).horses[umaban] = { odds: Number(odds), ninki: Number(ninki) };
+    });
+  for (const [raceId, snaps] of snapsByRace) {
+    const race = byRace.get(raceId);
+    for (const snap of snaps.values()) {
+      addEstimates(snap.horses, snap.pool);
+      const prev = race.snaps.at(-1);
+      race.snaps.push(snap);
+      if (prev) race.alerts.push(...detect(race, prev, snap).map((a) => ({ ...a, at: snap.at })));
+    }
+  }
 }
 
 async function poll(race, names) {
@@ -196,13 +219,60 @@ async function poll(race, names) {
     console.log(`${hhmmss(now())} ${race.label} ${race.name} 監視開始`);
     return;
   }
-  printBoard(race, snap, names);
   for (const a of detect(race, prev, snap)) {
+    race.alerts.push({ ...a, at: snap.at });
     const name = names.get(`${race.id}_${a.umaban}`) ?? "";
-    const line = `【${race.label}】${a.umaban}番${name} ${a.text}`;
-    console.log(`\x1b[41m\x1b[97m ${line} \x1b[0m`);
+    console.log(`\x1b[41m\x1b[97m 【${race.label}】${a.umaban}番${name} ${a.text} \x1b[0m`);
     notify(`${race.label} ${race.name}`, `${a.umaban}番${name} ${a.text}`);
   }
+}
+
+// --- ブラウザ画面向けの状態 ---
+function raceState(race, names) {
+  const minsLeft = (race.post - now()) / 60000;
+  const state = race.done || minsLeft < -3 ? "done" : minsLeft <= WINDOW_MIN ? "watching" : "waiting";
+  const horseIds = [...new Set(race.snaps.flatMap((s) => Object.keys(s.horses)))].sort();
+  return {
+    id: race.id,
+    label: race.label,
+    name: race.name,
+    post: race.post.toISOString(),
+    state,
+    times: race.snaps.map((s) => s.at),
+    pools: race.snaps.map((s) => s.pool),
+    horses: horseIds.map((u) => ({
+      umaban: u,
+      name: names.get(`${race.id}_${u}`) ?? "",
+      odds: race.snaps.map((s) => s.horses[u]?.odds ?? null),
+      est: race.snaps.map((s) => (s.horses[u] ? Math.round(s.horses[u].est) : null)),
+      ninki: race.snaps.at(-1)?.horses[u]?.ninki ?? null,
+    })),
+    alerts: race.alerts,
+  };
+}
+
+function startServer(races, names) {
+  const page = readFileSync(new URL("./odds-watch.html", import.meta.url));
+  const server = createServer((req, res) => {
+    if (req.url === "/api/state") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(
+        JSON.stringify({
+          now: now().toISOString(),
+          settings: { minYen: MIN_YEN, drop: DROP, windowMin: WINDOW_MIN },
+          races: races.map((r) => raceState(r, names)),
+        })
+      );
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(page);
+  });
+  server.listen(PORT, "127.0.0.1", () => {
+    const url = `http://localhost:${PORT}`;
+    console.log(`画面: ${url}`);
+    if (AUTO_OPEN && process.platform === "darwin") execFile("open", [url]);
+  });
 }
 
 async function main() {
@@ -210,7 +280,7 @@ async function main() {
   if (SINGLE_RACE) {
     const post = now();
     post.setMinutes(post.getMinutes() + 10);
-    races = [{ id: SINGLE_RACE, label: `${PLACES[SINGLE_RACE.slice(4, 6)] ?? ""}${Number(SINGLE_RACE.slice(10, 12))}R`, name: "(動作確認)", post }];
+    races = [{ id: SINGLE_RACE, label: raceLabel(SINGLE_RACE), name: "(動作確認)", post }];
   } else {
     races = await fetchTodayRaces(todayStr());
   }
@@ -219,10 +289,12 @@ async function main() {
     return;
   }
   const names = await fetchHorseNames(races.map((r) => r.id));
-  races.forEach((r) => Object.assign(r, { snaps: [], dropAlerted: new Set(), lastPoll: 0, done: false }));
+  races.forEach((r) => Object.assign(r, { snaps: [], alerts: [], dropAlerted: new Set(), lastPoll: 0, done: false }));
+  if (!SINGLE_RACE) restoreFromCsv(races);
   console.log(
-    `${races.length}レースを監視します(発走${WINDOW_MIN}分前から / 大口=${man(MIN_YEN)}以上 / 急落=${DROP * 100}%以上)。Ctrl+Cで終了\n`
+    `${races.length}レースを監視します(発走${WINDOW_MIN}分前から / 大口=${man(MIN_YEN)}以上 / 急落=${DROP * 100}%以上)。Ctrl+Cで終了`
   );
+  startServer(races, names);
 
   while (races.some((r) => !r.done)) {
     for (const race of races) {
@@ -230,8 +302,8 @@ async function main() {
       const minsLeft = (race.post - now()) / 60000;
       if (minsLeft > WINDOW_MIN) continue;
       if (minsLeft < -3) {
-        // 発走後に確定寸前のオッズをもう1回だけ残して終了
-        await poll(race, names);
+        // 発走後に確定寸前のオッズをもう1回だけ残して終了(起動前にとっくに終わっていたレースは取りに行かない)
+        if (minsLeft > -10) await poll(race, names).catch(() => {});
         race.done = true;
         console.log(`${hhmmss(now())} ${race.label} 監視終了`);
         continue;
@@ -244,7 +316,7 @@ async function main() {
     }
     await sleep(5000);
   }
-  console.log("今日の監視はすべて終了しました");
+  console.log("今日の監視はすべて終了しました(画面は開いたままにしてあります。Ctrl+Cで終了)");
 }
 
 main().catch((err) => {

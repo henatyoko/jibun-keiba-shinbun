@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>直前オッズ監視</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f3ef;
+    --surface: #fcfcfb;
+    --border: #e2e0d8;
+    --text: #0b0b0b;
+    --text-2: #52514e;
+    --text-3: #8a8983;
+    --accent: #2a78d6;
+    --accent-soft: #e3eefb;
+    --alert: #d03b3b;
+    --alert-soft: #fbe7e6;
+    --good: #1a7f4b;
+    --spark: #52514e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #121211;
+      --surface: #1a1a19;
+      --border: #2e2e2c;
+      --text: #ffffff;
+      --text-2: #c3c2b7;
+      --text-3: #8a8983;
+      --accent: #3987e5;
+      --accent-soft: #1d2b3d;
+      --alert: #e66767;
+      --alert-soft: #3a2020;
+      --good: #4cc38a;
+      --spark: #c3c2b7;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    font-size: 14px;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+    padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--surface);
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header .clock { font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 600; }
+  header .settings { color: var(--text-3); font-size: 12px; }
+  header .conn { margin-left: auto; font-size: 12px; color: var(--text-3); }
+  header .conn.bad { color: var(--alert); font-weight: 600; }
+
+  .layout { display: grid; grid-template-columns: 240px 1fr 300px; gap: 16px; padding: 16px 20px; align-items: start; }
+  @media (max-width: 1100px) { .layout { grid-template-columns: 200px 1fr; } .feed { grid-column: 1 / -1; } }
+  @media (max-width: 700px) { .layout { grid-template-columns: 1fr; padding: 12px 16px; } }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+  .panel h2 { font-size: 13px; color: var(--text-2); margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 600; }
+
+  .races { max-height: calc(100vh - 110px); overflow-y: auto; }
+  .race-item {
+    display: grid; grid-template-columns: 44px 1fr auto; gap: 8px; align-items: center;
+    padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer; width: 100%;
+    background: none; border-left: 3px solid transparent; border-top: 0; border-right: 0; color: inherit; font: inherit; text-align: left;
+  }
+  .race-item:hover { background: var(--accent-soft); }
+  .race-item.selected { background: var(--accent-soft); border-left-color: var(--accent); }
+  .race-item.done { color: var(--text-3); }
+  .race-item .t { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--text-2); }
+  .race-item .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .race-item .n small { color: var(--text-3); margin-left: 4px; }
+  .badge { font-size: 11px; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
+  .badge.watching { background: var(--accent); color: #fff; }
+  .badge.alert { background: var(--alert); color: #fff; }
+
+  .main { padding: 16px 18px; min-height: 400px; }
+  .race-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .race-head h3 { margin: 0; font-size: 20px; }
+  .race-head .sub { color: var(--text-2); }
+  .stats { display: flex; gap: 28px; flex-wrap: wrap; margin: 14px 0 6px; }
+  .stat .k { font-size: 12px; color: var(--text-2); }
+  .stat .v { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .v small { font-size: 13px; font-weight: 500; color: var(--text-2); margin-left: 4px; }
+  .note { color: var(--text-3); font-size: 12px; margin: 4px 0 12px; }
+
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th { font-size: 11px; color: var(--text-2); font-weight: 600; text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th.l, td.l { text-align: left; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  tr.flag td { background: var(--alert-soft); }
+  .flag-icon { color: var(--alert); font-weight: 700; margin-right: 2px; }
+  .down { color: var(--good); font-weight: 600; }
+  .up { color: var(--text-3); }
+  .bar-cell { width: 34%; min-width: 120px; }
+  .bar-wrap { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+  .bar { height: 10px; border-radius: 0 4px 4px 0; background: var(--accent); }
+  .bar.flag { background: var(--alert); }
+  .bar-val { min-width: 64px; text-align: right; }
+  svg.spark { display: block; }
+  svg.spark polyline { fill: none; stroke: var(--spark); stroke-width: 1.5; }
+  svg.spark circle.end { fill: var(--spark); }
+  svg.spark .hit { fill: transparent; }
+  svg.spark .hit:hover { fill: var(--accent); }
+  .empty { color: var(--text-3); padding: 40px 0; text-align: center; }
+
+  .feed { max-height: calc(100vh - 110px); overflow-y: auto; }
+  .alert-item { padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .alert-item:hover { background: var(--alert-soft); }
+  .alert-item .top { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-2); }
+  .alert-item .kind { color: var(--alert); font-weight: 700; }
+  .alert-item .body { margin-top: 3px; }
+  .alert-item.fresh { animation: flash 2s ease-out; }
+  @keyframes flash { from { background: var(--alert-soft); } to { background: transparent; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>直前オッズ監視</h1>
+  <span class="clock" id="clock">--:--:--</span>
+  <span class="settings" id="settings"></span>
+  <span class="conn" id="conn">接続中…</span>
+</header>
+<div class="layout">
+  <nav class="panel races" aria-label="レース一覧">
+    <h2>今日のレース</h2>
+    <div id="raceList"></div>
+  </nav>
+  <main class="panel main" id="main"><div class="empty">読み込み中…</div></main>
+  <aside class="panel feed" aria-label="アラート">
+    <h2>アラート(新しい順)</h2>
+    <div id="feed"><div class="empty">まだありません</div></div>
+  </aside>
+</div>
+
+<script>
+let state = null;
+let selectedId = null;       // 利用者がクリックで選んだレース(未選択なら自動で直近のレースを表示)
+const seenAlerts = new Set();
+let firstLoad = true;
+
+const man = (yen) => `${Math.round(yen / 10000).toLocaleString()}万円`;
+const hm = (iso) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+const hms = (s) => s.slice(11, 19);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function autoRace() {
+  const races = state.races;
+  return races.filter((r) => r.state === "watching").sort((a, b) => new Date(a.post) - new Date(b.post))[0]
+    ?? races.find((r) => r.state === "waiting")
+    ?? races.at(-1);
+}
+
+function renderList() {
+  const current = selectedId ?? autoRace()?.id;
+  document.getElementById("raceList").innerHTML = state.races.map((r) => `
+    <button class="race-item ${r.state} ${r.id === current ? "selected" : ""}" data-id="${r.id}">
+      <span class="t">${hm(r.post)}</span>
+      <span class="n">${esc(r.label)}<small>${esc(r.name)}</small></span>
+      <span>
+        ${r.alerts.length ? `<span class="badge alert">⚠ ${r.alerts.length}</span>` : ""}
+        ${r.state === "watching" ? `<span class="badge watching">監視中</span>` : ""}
+      </span>
+    </button>`).join("");
+}
+
+// オッズ推移の小さな折れ線(下に行くほどオッズが下がる=お金が入っている)
+function spark(odds, times) {
+  const pts = odds.map((o, i) => [i, o]).filter(([, o]) => o != null);
+  const W = 110, H = 26, P = 3;
+  if (pts.length < 2) return `<svg class="spark" width="${W}" height="${H}"></svg>`;
+  const vals = pts.map(([, o]) => o);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const x = (i) => P + (i / (odds.length - 1)) * (W - P * 2);
+  const y = (o) => hi === lo ? H / 2 : P + ((hi - o) / (hi - lo)) * (H - P * 2);
+  const line = pts.map(([i, o]) => `${x(i).toFixed(1)},${y(o).toFixed(1)}`).join(" ");
+  const [li, lo2] = pts.at(-1);
+  const hits = pts.map(([i, o]) => `<circle class="hit" cx="${x(i)}" cy="${y(o)}" r="4"><title>${hms(times[i])}  ${o}倍</title></circle>`).join("");
+  return `<svg class="spark" width="${W}" height="${H}" role="img" aria-label="オッズ推移">
+    <polyline points="${line}"/><circle class="end" cx="${x(li)}" cy="${y(lo2)}" r="2.5"/>${hits}</svg>`;
+}
+
+function renderMain() {
+  const race = state.races.find((r) => r.id === (selectedId ?? autoRace()?.id));
+  const el = document.getElementById("main");
+  if (!race) { el.innerHTML = `<div class="empty">今日のレースがありません</div>`; return; }
+
+  const minsLeft = (new Date(race.post) - new Date()) / 60000;
+  const countdown = race.state === "done" ? "終了" : minsLeft > 0 ? `発走まで ${Math.floor(minsLeft)}分${String(Math.floor((minsLeft % 1) * 60)).padStart(2, "0")}秒` : "発走";
+  const head = `
+    <div class="race-head">
+      <h3>${esc(race.label)} ${esc(race.name)}</h3>
+      <span class="sub">${hm(race.post)}発走 ・ ${countdown}</span>
+    </div>`;
+
+  if (race.times.length === 0) {
+    const msg = race.state === "waiting" ? `発走${state.settings.windowMin}分前から監視を始めます` : "オッズを取得できませんでした";
+    el.innerHTML = head + `<div class="empty">${msg}</div>`;
+    return;
+  }
+
+  const pool = race.pools.at(-1);
+  const poolGain = pool - race.pools[0];
+  const flagged = new Set(race.alerts.map((a) => a.umaban));
+  const rows = race.horses.map((h) => {
+    const first = h.est.find((v) => v != null);
+    const firstOdds = h.odds.find((v) => v != null);
+    const lastOdds = h.odds.at(-1);
+    return { ...h, gain: (h.est.at(-1) ?? first) - first, firstOdds, lastOdds };
+  }).sort((a, b) => b.gain - a.gain);
+  const maxGain = Math.max(1, ...rows.map((r) => r.gain));
+
+  el.innerHTML = head + `
+    <div class="stats">
+      <div class="stat"><div class="k">単勝売上</div><div class="v">${man(pool)}</div></div>
+      <div class="stat"><div class="k">監視開始から増えた分</div><div class="v">+${man(poolGain)}<small>${hms(race.times[0])}〜${hms(race.times.at(-1))}</small></div></div>
+      <div class="stat"><div class="k">アラート</div><div class="v">${race.alerts.length}<small>件</small></div></div>
+    </div>
+    <p class="note">「入った額」は単勝売上とオッズからの推定。監視開始から多く入った順に並べています。</p>
+    <table>
+      <thead><tr>
+        <th class="l">馬番</th><th class="l">馬名</th><th>人気</th>
+        <th class="l">オッズ推移</th><th>開始時</th><th>現在</th><th>変化</th>
+        <th class="bar-cell">監視開始から入った額(推定)</th>
+      </tr></thead>
+      <tbody>${rows.map((r) => {
+        const change = r.firstOdds && r.lastOdds ? r.lastOdds / r.firstOdds - 1 : 0;
+        const isFlag = flagged.has(r.umaban);
+        const w = Math.max(0, (r.gain / maxGain) * 100);
+        return `<tr class="${isFlag ? "flag" : ""}">
+          <td class="l">${isFlag ? `<span class="flag-icon" title="アラートあり">⚠</span>` : ""}${Number(r.umaban)}</td>
+          <td class="l">${esc(r.name)}</td>
+          <td>${r.ninki ?? ""}</td>
+          <td class="l">${spark(r.odds, race.times)}</td>
+          <td>${r.firstOdds ?? "-"}</td>
+          <td><strong>${r.lastOdds ?? "-"}</strong></td>
+          <td class="${change <= -0.05 ? "down" : "up"}">${change === 0 ? "±0%" : `${change > 0 ? "+" : ""}${Math.round(change * 100)}%`}</td>
+          <td class="bar-cell"><div class="bar-wrap">
+            <div class="bar ${isFlag ? "flag" : ""}" style="width:${w.toFixed(1)}%"></div>
+            <span class="bar-val">${r.gain > 0 ? "+" + man(r.gain) : "-"}</span>
+          </div></td>
+        </tr>`;
+      }).join("")}</tbody>
+    </table>`;
+}
+
+function renderFeed() {
+  const all = state.races.flatMap((r) => r.alerts.map((a) => ({ ...a, race: r })))
+    .sort((a, b) => b.at.localeCompare(a.at));
+  const feed = document.getElementById("feed");
+  if (all.length === 0) { feed.innerHTML = `<div class="empty">まだありません</div>`; return; }
+  feed.innerHTML = all.map((a) => {
+    const key = `${a.race.id}_${a.at}_${a.umaban}_${a.type}`;
+    const fresh = !firstLoad && !seenAlerts.has(key);
+    seenAlerts.add(key);
+    const horse = a.race.horses.find((h) => h.umaban === a.umaban);
+    return `<div class="alert-item ${fresh ? "fresh" : ""}" data-id="${a.race.id}">
+      <div class="top"><span><span class="kind">⚠ ${a.type === "big" ? "大口" : "急落"}</span> ${esc(a.race.label)}</span><span>${hms(a.at)}</span></div>
+      <div class="body">${Number(a.umaban)}番 ${esc(horse?.name ?? "")}<br>${esc(a.text.replace(/^(大口|急落) /, ""))}</div>
+    </div>`;
+  }).join("");
+  firstLoad = false;
+}
+
+function render() {
+  if (!state) return;
+  const s = state.settings;
+  document.getElementById("settings").textContent =
+    `発走${s.windowMin}分前から監視 ・ 大口=${man(s.minYen)}以上 ・ 急落=約10分で${Math.round(s.drop * 100)}%以上`;
+  renderList();
+  renderMain();
+  renderFeed();
+}
+
+async function load() {
+  const conn = document.getElementById("conn");
+  try {
+    const res = await fetch("/api/state", { cache: "no-store" });
+    state = await res.json();
+    conn.textContent = `更新 ${new Date().toLocaleTimeString("ja-JP")}`;
+    conn.classList.remove("bad");
+    render();
+  } catch {
+    conn.textContent = "監視スクリプトに接続できません(ターミナルで止まっていませんか?)";
+    conn.classList.add("bad");
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const item = e.target.closest("[data-id]");
+  if (!item) return;
+  selectedId = item.dataset.id;
+  render();
+});
+
+setInterval(() => { document.getElementById("clock").textContent = new Date().toLocaleTimeString("ja-JP"); }, 1000);
+setInterval(load, 5000);
+load();
+</script>
+</body>
+</html>
