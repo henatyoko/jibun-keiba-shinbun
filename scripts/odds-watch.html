@@ -242,7 +242,7 @@ function renderMain() {
         <th class="bar-cell">監視開始から入った額(推定)</th>
       </tr></thead>
       <tbody>${rows.map((r) => {
-        const change = r.firstOdds && r.lastOdds ? r.lastOdds / r.firstOdds - 1 : 0;
+        const change = r.firstOdds && r.lastOdds ? r.lastOdds / r.firstOdds - 1 : null;
         const isFlag = flaggedPre.has(r.umaban);
         const isPostOnly = !isFlag && flaggedPost.has(r.umaban);
         const w = Math.max(0, (r.gain / maxGain) * 100);
@@ -252,8 +252,8 @@ function renderMain() {
           <td>${r.ninki ?? ""}</td>
           <td class="l">${spark(r.odds, race.times)}</td>
           <td>${r.firstOdds ?? "-"}</td>
-          <td><strong>${r.lastOdds ?? "-"}</strong></td>
-          <td class="${change <= -0.05 ? "down" : "up"}">${change === 0 ? "±0%" : `${change > 0 ? "+" : ""}${Math.round(change * 100)}%`}</td>
+          <td>${r.lastOdds != null ? `<strong>${r.lastOdds}</strong>` : r.firstOdds != null ? `<span class="up" title="途中でオッズが出なくなった(取消・除外)">除外</span>` : "-"}</td>
+          <td class="${change <= -0.05 ? "down" : "up"}">${change == null ? "-" : change === 0 ? "±0%" : `${change > 0 ? "+" : ""}${Math.round(change * 100)}%`}</td>
           <td class="bar-cell"><div class="bar-wrap">
             <div class="bar ${isFlag ? "flag" : ""}" style="width:${w.toFixed(1)}%"></div>
             <span class="bar-val">${r.gain > 0 ? "+" + man(r.gain) : "-"}</span>

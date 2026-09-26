@@ -110,6 +110,9 @@ async function fetchHorseNames(raceIds) {
   }
 }
 
+// 取消・除外の馬はnetkeibaが負の値(-3.0など)を返すが、除外が出た直後の更新だけ999.9倍になることがある
+const isValidOdds = (o) => o > 0 && o !== 999.9;
+
 // 各馬の投票額 ≒ 単勝発売額 × (1/オッズ) / Σ(1/オッズ)  (控除率に依らない形で按分)
 function addEstimates(horses, pool) {
   const invSum = Object.values(horses).reduce((s, h) => s + 1 / h.odds, 0);
@@ -132,7 +135,7 @@ async function fetchOdds(raceId) {
   const horses = {};
   for (const [umaban, [odds, , ninki]] of Object.entries(tansho)) {
     const o = Number(odds);
-    if (o > 0) horses[umaban] = { odds: o, ninki: Number(ninki) };
+    if (isValidOdds(o)) horses[umaban] = { odds: o, ninki: Number(ninki) };
   }
   const pool = Number(data.h_tansho) * 100;
   addEstimates(horses, pool);
@@ -225,7 +228,7 @@ function restoreFromCsv(races) {
     .slice(1)
     .forEach((line) => {
       const [raceId, , at, status, pool, umaban, odds, ninki] = line.split(",");
-      if (!byRace.has(raceId) || !odds) return;
+      if (!byRace.has(raceId) || !isValidOdds(Number(odds))) return;
       if (!snapsByRace.has(raceId)) snapsByRace.set(raceId, new Map());
       const snaps = snapsByRace.get(raceId);
       if (!snaps.has(at)) snaps.set(at, { at, status, pool: Number(pool), horses: {} });
