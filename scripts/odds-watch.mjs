@@ -16,13 +16,14 @@
 // Macの通知はそれだけに出す。締切後に分かった動きは画面に「締切後」として残す。
 //
 // 馬ごとの投票額はnetkeibaが返す単勝票数(h_tansho)とオッズからの推定値。
-// 取得したオッズは odds-watch-data/YYYYMMDD.csv に残す(あとで「本当に勝つのか」を検証する材料)。
-// 途中で止めて起動し直しても、当日分はこのCSVから復元する。
+// 取得したオッズ(単勝+複勝)は odds-watch-data/YYYYMMDD.csv に残す(あとで「本当に勝つのか」を検証する材料)。
+// レース後は結果ページから着順と単勝配当を取り、odds-watch-data/YYYYMMDD-results.json に残して
+// アラートごとの答え合わせに使う。途中で止めて起動し直しても、当日分はこの2つのファイルから復元する。
 //
 // 注意: netkeibaの利用規約上、私的利用の範囲を超える利用は禁止されている。
 // 本人の私的利用のため、発走前の限られた時間だけ・1レースにつき1分(直前は30秒)間隔でのみ取得する。
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { createServer } from "node:http";
 import * as cheerio from "cheerio";
@@ -61,6 +62,7 @@ function todayStr() {
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
 }
 const CSV_FILE = `odds-watch-data/${todayStr()}.csv`;
+const RESULTS_FILE = `odds-watch-data/${todayStr()}-results.json`;
 
 // --- 今日のレース一覧(レースID・発走時刻・レース名)をnetkeibaから取得 ---
 async function fetchTodayRaces(kaisaiDate) {
@@ -120,7 +122,7 @@ function addEstimates(horses, pool) {
 }
 
 // --- 単勝オッズ1回分を取得 ---
-// 返り値: { at: 公式発表時刻, pool: 単勝発売額(円), horses: {馬番: {odds, ninki, est}} }
+// 返り値: { at: 公式発表時刻, pool: 単勝発売額(円), horses: {馬番: {odds, ninki, est, fukuMin, fukuMax}} }
 async function fetchOdds(raceId) {
   const res = await fetch(
     `https://race.netkeiba.com/api/api_get_jra_odds.html?race_id=${raceId}&type=1&action=update`,
@@ -136,6 +138,10 @@ async function fetchOdds(raceId) {
   for (const [umaban, [odds, , ninki]] of Object.entries(tansho)) {
     const o = Number(odds);
     if (isValidOdds(o)) horses[umaban] = { odds: o, ninki: Number(ninki) };
+  }
+  // 複勝は同じレスポンスに [下限, 上限, 人気] で入っている(記録と表示だけで、アラートには使わない)
+  for (const [umaban, [min, max]] of Object.entries(data.odds["2"] ?? {})) {
+    if (horses[umaban] && Number(min) > 0) Object.assign(horses[umaban], { fukuMin: Number(min), fukuMax: Number(max) });
   }
   const pool = Number(data.h_tansho) * 100;
   addEstimates(horses, pool);
@@ -210,10 +216,12 @@ function detect(race, prev, cur) {
 
 function logCsv(race, snap) {
   if (!existsSync("odds-watch-data")) mkdirSync("odds-watch-data");
-  if (!existsSync(CSV_FILE)) appendFileSync(CSV_FILE, "race_id,post_time,official_datetime,status,tansho_pool_yen,umaban,odds,ninki\n");
+  if (!existsSync(CSV_FILE)) {
+    appendFileSync(CSV_FILE, "race_id,post_time,official_datetime,status,tansho_pool_yen,umaban,odds,ninki,fuku_min,fuku_max\n");
+  }
   const post = `${pad(race.post.getHours())}:${pad(race.post.getMinutes())}`;
   const rows = Object.entries(snap.horses).map(
-    ([u, h]) => `${race.id},${post},${snap.at},${snap.status},${snap.pool},${u},${h.odds},${h.ninki}`
+    ([u, h]) => `${race.id},${post},${snap.at},${snap.status},${snap.pool},${u},${h.odds},${h.ninki},${h.fukuMin ?? ""},${h.fukuMax ?? ""}`
   );
   appendFileSync(CSV_FILE, rows.join("\n") + "\n");
 }
@@ -227,12 +235,16 @@ function restoreFromCsv(races) {
     .split("\n")
     .slice(1)
     .forEach((line) => {
-      const [raceId, , at, status, pool, umaban, odds, ninki] = line.split(",");
+      const [raceId, , at, status, pool, umaban, odds, ninki, fukuMin, fukuMax] = line.split(",");
       if (!byRace.has(raceId) || !isValidOdds(Number(odds))) return;
       if (!snapsByRace.has(raceId)) snapsByRace.set(raceId, new Map());
       const snaps = snapsByRace.get(raceId);
       if (!snaps.has(at)) snaps.set(at, { at, status, pool: Number(pool), horses: {} });
-      snaps.get(at).horses[umaban] = { odds: Number(odds), ninki: Number(ninki) };
+      snaps.get(at).horses[umaban] = {
+        odds: Number(odds),
+        ninki: Number(ninki),
+        ...(Number(fukuMin) > 0 ? { fukuMin: Number(fukuMin), fukuMax: Number(fukuMax) } : {}),
+      };
     });
   for (const [raceId, snaps] of snapsByRace) {
     const race = byRace.get(raceId);
@@ -242,6 +254,59 @@ function restoreFromCsv(races) {
       race.snaps.push(snap);
       if (prev) race.alerts.push(...detect(race, prev, snap).map((a) => ({ ...a, at: snap.at })));
     }
+  }
+}
+
+// --- 結果(着順・単勝配当) ---
+// 発走直後の速報ページでは1着と単勝配当だけが見え、2・3着はしばらく伏せられているため、
+// 3着までそろうまで数分おきに取り直す。
+async function fetchResult(raceId) {
+  const res = await fetch(`https://race.netkeiba.com/race/result.html?race_id=${raceId}`, { headers: HEADERS });
+  if (!res.ok) return null;
+  const $ = cheerio.load(await res.text());
+  const ranks = {};
+  $("#All_Result_Table tr.HorseList").each((_, tr) => {
+    const rank = Number($(tr).find(".Rank").text().trim());
+    const umaban = $(tr).find("td").eq(2).text().trim();
+    if (rank > 0 && /^\d+$/.test(umaban)) ranks[pad(umaban)] = rank;
+  });
+  const tanshoPayout = Number($("tr.Tansho .Payout").first().text().replace(/[^\d]/g, "")) || null;
+  if (Object.keys(ranks).length === 0) return null;
+  const complete = [1, 2, 3].every((r) => Object.values(ranks).includes(r));
+  return { ranks, tanshoPayout, complete };
+}
+
+function loadResults() {
+  try {
+    return JSON.parse(readFileSync(RESULTS_FILE, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function saveResults(races) {
+  if (!existsSync("odds-watch-data")) mkdirSync("odds-watch-data");
+  const all = Object.fromEntries(races.filter((r) => r.result).map((r) => [r.id, r.result]));
+  writeFileSync(RESULTS_FILE, JSON.stringify(all, null, 2));
+}
+
+// 発走5分後から5分おき、発走120分後まで。監視したレースだけが対象
+function resultDue(race) {
+  if (race.snaps.length === 0 || race.result?.complete) return false;
+  const minsAfter = (now() - race.post) / 60000;
+  return minsAfter >= 5 && minsAfter <= 120 && Date.now() - race.lastResultTry >= 5 * 60 * 1000;
+}
+
+async function updateResult(race, races) {
+  race.lastResultTry = Date.now();
+  const result = await fetchResult(race.id);
+  if (!result) return;
+  const hadWinner = race.result != null;
+  race.result = result;
+  saveResults(races);
+  if (!hadWinner) {
+    const winner = Object.entries(result.ranks).find(([, r]) => r === 1)?.[0];
+    console.log(`${hhmmss(now())} ${race.label} 結果: 1着 ${Number(winner)}番 (単勝${result.tanshoPayout ?? "?"}円)`);
   }
 }
 
@@ -288,8 +353,11 @@ function raceState(race, names) {
       odds: race.snaps.map((s) => s.horses[u]?.odds ?? null),
       est: race.snaps.map((s) => (s.horses[u] ? Math.round(s.horses[u].est) : null)),
       ninki: race.snaps.at(-1)?.horses[u]?.ninki ?? null,
+      fuku: race.snaps.map((s) => s.horses[u]?.fukuMin ?? null),
+      rank: race.result?.ranks[u] ?? null,
     })),
     alerts: race.alerts,
+    result: race.result ?? null,
   };
 }
 
@@ -338,15 +406,24 @@ async function main() {
     return;
   }
   const names = await fetchHorseNames(races.map((r) => r.id));
-  races.forEach((r) => Object.assign(r, { snaps: [], alerts: [], dropAlerted: new Set(), slideAlerted: new Set(), lastPoll: 0, done: false }));
-  if (!SINGLE_RACE) restoreFromCsv(races);
+  races.forEach((r) => Object.assign(r, { snaps: [], alerts: [], dropAlerted: new Set(), slideAlerted: new Set(), lastPoll: 0, lastResultTry: 0, done: false }));
+  if (!SINGLE_RACE) {
+    restoreFromCsv(races);
+    const saved = loadResults();
+    races.forEach((r) => (r.result = saved[r.id] ?? null));
+  }
   console.log(
     `${races.length}レースを監視します(発走${WINDOW_MIN}分前から / 大口=${man(MIN_YEN)}以上 / 急落=${DROP * 100}%以上 / じわじわ下落=${SLIDE * 100}%以上)。Ctrl+Cで終了`
   );
   startServer(races, names);
 
-  while (races.some((r) => !r.done)) {
+  const resultPending = (r) => r.snaps.length > 0 && !r.result?.complete && (now() - r.post) / 60000 <= 120;
+  while (races.some((r) => !r.done || resultPending(r))) {
     for (const race of races) {
+      if (resultDue(race)) {
+        await updateResult(race, races).catch((e) => console.error(`${race.label} 結果取得失敗: ${e.message}`));
+        await sleep(1000);
+      }
       if (race.done) continue;
       const minsLeft = (race.post - now()) / 60000;
       if (minsLeft > WINDOW_MIN) continue;

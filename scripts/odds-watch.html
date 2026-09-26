@@ -119,6 +119,16 @@
   .alert-item .top { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-2); }
   .alert-item .kind { color: var(--alert); font-weight: 700; }
   .alert-item.post .kind, .alert-item.post .body { color: var(--text-3); }
+  .rank { display: inline-block; min-width: 38px; text-align: center; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+  .rank.win { background: var(--accent); color: #fff; }
+  .rank.place { background: var(--accent-soft); color: var(--accent); }
+  .rank.out { color: var(--text-3); }
+  .alert-item .rank { margin-left: 6px; }
+  .score { padding: 8px 12px 10px; }
+  .score table th, .score table td { padding: 4px 4px; font-size: 12px; }
+  .score .grp td { color: var(--text-2); font-size: 11px; font-weight: 600; padding-top: 8px; text-align: left; border-bottom: 0; }
+  .score .foot { color: var(--text-3); font-size: 11px; margin-top: 6px; }
+  .result-line { font-weight: 700; margin-left: 4px; }
   .alert-item .body { margin-top: 3px; }
   .alert-item.fresh { animation: flash 2s ease-out; }
   @keyframes flash { from { background: var(--alert-soft); } to { background: transparent; } }
@@ -138,6 +148,8 @@
   </nav>
   <main class="panel main" id="main"><div class="empty">読み込み中…</div></main>
   <aside class="panel feed" aria-label="アラート">
+    <h2>答え合わせ(今日)</h2>
+    <div class="score" id="score"></div>
     <h2>アラート(新しい順)</h2>
     <div id="feed"><div class="empty">まだありません</div></div>
   </aside>
@@ -154,6 +166,20 @@ const hm = (iso) => { const d = new Date(iso); return `${String(d.getHours()).pa
 const hms = (s) => s.slice(11, 19);
 const KIND = { big: "大口", drop: "急落", slide: "じわじわ下落" };
 const PHASE = { pre: "締切前(買える)", post: "締切後" };
+// 着順バッジ。2・3着が伏せられている間(complete=false)に1着以外なら「確認中」
+function rankBadge(race, umaban) {
+  if (!race.result) return "";
+  const r = race.result.ranks[umaban];
+  if (r === 1) return `<span class="rank win">1着</span>`;
+  if (r === 2 || r === 3) return `<span class="rank place">${r}着</span>`;
+  if (!race.result.complete) return `<span class="rank out">確認中</span>`;
+  return `<span class="rank out">${r ? `${r}着` : "着外"}</span>`;
+}
+const resultLine = (race) => {
+  if (!race.result) return "";
+  const order = Object.entries(race.result.ranks).filter(([, r]) => r <= 3).sort((a, b) => a[1] - b[1]).map(([u]) => Number(u));
+  return `<span class="result-line">結果 ${order.join("-")}${race.result.complete ? "" : "(2・3着確認中)"} ・ 単勝${race.result.tanshoPayout ?? "?"}円</span>`;
+};
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 function autoRace() {
@@ -207,6 +233,7 @@ function renderMain() {
     <div class="race-head">
       <h3>${esc(race.label)} ${esc(race.name)}</h3>
       <span class="sub">${hm(race.post)}発走(締切${hm(race.close)}) ・ ${countdown}</span>
+      ${resultLine(race)}
     </div>`;
 
   if (race.times.length === 0) {
@@ -238,7 +265,7 @@ function renderMain() {
     <table>
       <thead><tr>
         <th class="l">馬番</th><th class="l">馬名</th><th>人気</th>
-        <th class="l">オッズ推移</th><th>開始時</th><th>現在</th><th>変化</th>
+        <th class="l">オッズ推移</th><th>開始時</th><th>現在</th><th>変化</th><th title="複勝オッズの下限">複勝(開始→現在)</th><th>着順</th>
         <th class="bar-cell">監視開始から入った額(推定)</th>
       </tr></thead>
       <tbody>${rows.map((r) => {
@@ -254,6 +281,13 @@ function renderMain() {
           <td>${r.firstOdds ?? "-"}</td>
           <td>${r.lastOdds != null ? `<strong>${r.lastOdds}</strong>` : r.firstOdds != null ? `<span class="up" title="途中でオッズが出なくなった(取消・除外)">除外</span>` : "-"}</td>
           <td class="${change <= -0.05 ? "down" : "up"}">${change == null ? "-" : change === 0 ? "±0%" : `${change > 0 ? "+" : ""}${Math.round(change * 100)}%`}</td>
+          <td>${(() => {
+            const f = r.fuku.filter((v) => v != null);
+            if (f.length === 0) return "-";
+            const fc = f.at(-1) / f[0] - 1;
+            return `${f[0]}→${f.at(-1)} <span class="${fc <= -0.05 ? "down" : "up"}">${fc === 0 ? "" : `${fc > 0 ? "+" : ""}${Math.round(fc * 100)}%`}</span>`;
+          })()}</td>
+          <td>${rankBadge(race, r.umaban)}</td>
           <td class="bar-cell"><div class="bar-wrap">
             <div class="bar ${isFlag ? "flag" : ""}" style="width:${w.toFixed(1)}%"></div>
             <span class="bar-val">${r.gain > 0 ? "+" + man(r.gain) : "-"}</span>
@@ -276,10 +310,55 @@ function renderFeed() {
     const phase = a.phase === "pre" ? "pre" : "post";
     return `<div class="alert-item ${phase} ${fresh ? "fresh" : ""}" data-id="${a.race.id}">
       <div class="top"><span><span class="kind">${phase === "pre" ? "⚠" : "◷"} ${KIND[a.type] ?? a.type}</span> ${esc(a.race.label)}<span class="phase ${phase}">${PHASE[phase]}</span></span><span>${hms(a.at)}</span></div>
-      <div class="body">${Number(a.umaban)}番 ${esc(horse?.name ?? "")}<br>${esc(a.text.replace(/^(大口|急落|じわじわ下落) /, ""))}</div>
+      <div class="body">${Number(a.umaban)}番 ${esc(horse?.name ?? "")}${rankBadge(a.race, a.umaban)}<br>${esc(a.text.replace(/^(大口|急落|じわじわ下落) /, ""))}</div>
     </div>`;
   }).join("");
   firstLoad = false;
+}
+
+// アラートの種類ごとに、1着・3着内・単勝100円ずつ買った場合の回収率。同じ馬への同じ種類のアラートは1回と数える
+function renderScore() {
+  const groups = [
+    ["pre", "slide"], ["pre", "big"], ["pre", "drop"], ["post", "big"], ["post", "drop"],
+  ];
+  const seen = new Set();
+  const stats = Object.fromEntries(groups.map(([p, t]) => [`${p}_${t}`, { n: 0, done: 0, win: 0, top3: 0, top3Known: 0, pay: 0 }]));
+  for (const race of state.races) {
+    for (const a of race.alerts) {
+      const key = `${race.id}_${a.umaban}_${a.phase}_${a.type}`;
+      if (seen.has(key) || !stats[`${a.phase}_${a.type}`]) continue;
+      seen.add(key);
+      const st = stats[`${a.phase}_${a.type}`];
+      st.n++;
+      if (!race.result) continue;
+      const r = race.result.ranks[a.umaban];
+      st.done++;
+      if (r === 1) { st.win++; st.pay += race.result.tanshoPayout ?? 0; }
+      if (r <= 3 || race.result.complete) { st.top3Known++; if (r <= 3) st.top3++; }
+    }
+  }
+  const row = ([p, t]) => {
+    const st = stats[`${p}_${t}`];
+    const pending = st.n - st.done;
+    return `<tr>
+      <td class="l">${KIND[t]}</td>
+      <td>${st.done}${pending ? `<span class="up">+${pending}</span>` : ""}</td>
+      <td>${st.win}</td>
+      <td>${st.top3Known ? `${st.top3}/${st.top3Known}` : "-"}</td>
+      <td>${st.done ? `${Math.round(st.pay / st.done)}%` : "-"}</td>
+    </tr>`;
+  };
+  document.getElementById("score").innerHTML = `
+    <table>
+      <thead><tr><th class="l">アラート</th><th>頭数</th><th>1着</th><th>3着内</th><th>単回収</th></tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="5">締切前(買える)</td></tr>
+        ${groups.filter(([p]) => p === "pre").map(row).join("")}
+        <tr class="grp"><td colspan="5">締切後(参考)</td></tr>
+        ${groups.filter(([p]) => p === "post").map(row).join("")}
+      </tbody>
+    </table>
+    <div class="foot">頭数の「+n」は結果待ち。単回収はアラートの出た馬の単勝を100円ずつ買った場合。数レースでは偶然の差が大きいので、何週かためてから判断してください。</div>`;
 }
 
 function render() {
@@ -290,6 +369,7 @@ function render() {
   renderList();
   renderMain();
   renderFeed();
+  renderScore();
 }
 
 async function load() {
