@@ -144,7 +144,7 @@ async function assembleRaces(raceRows, isPastReview) {
 
   const { rows: entryRows, error: entryError } = await fetchAllRows(
     "umagoto_race_joho",
-    "race_code, umaban, wakuban, ketto_toroku_bango, bamei, kishumei_ryakusho, chokyoshimei_ryakusho, banushimei_hojinkaku_nashi, barei, kakutei_chakujun, tansho_odds, tansho_ninkijun, futan_juryo",
+    "race_code, umaban, wakuban, ketto_toroku_bango, bamei, kishumei_ryakusho, chokyoshimei_ryakusho, banushimei_hojinkaku_nashi, barei, kakutei_chakujun, tansho_odds, tansho_ninkijun, futan_juryo, bataiju",
     (q) => q.in("race_code", raceCodes)
   );
 
@@ -247,6 +247,7 @@ async function assembleRaces(raceRows, isPastReview) {
           odds: positiveOrNull(liveOdds?.odds, 10) ?? positiveOrNull(h.tansho_odds, 10),
           ninki: positiveOrNull(liveOdds?.ninki) ?? positiveOrNull(h.tansho_ninkijun),
           futanJuryo: positiveOrNull(h.futan_juryo, 10),
+          bataiju: positiveOrNull(h.bataiju),
         };
       });
 

@@ -8,6 +8,7 @@ import {
   handicapWeightDropAdjustment,
   shadaiLayoffAdjustment,
   jockeyAbandonmentAdjustment,
+  bodyWeightAdjustment,
   computeMarks,
 } from "./scoring";
 import { saveSnapshotIfMissing } from "./raceSnapshotRepository";
@@ -141,6 +142,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
         jvPast?.[0]?.kishumei_ryakusho?.trim() || null,
         raceJockeyContext
       );
+      const bodyWeight = bodyWeightAdjustment(race.grade, h.bataiju, race.place);
       const extra = [
         ...(bias ? [{ label: bias.label, score: bias.score }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
@@ -148,6 +150,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
         ...(handicapDrop ? [{ label: handicapDrop.label, score: handicapDrop.score }] : []),
         ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
         ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
+        ...(bodyWeight ? [{ label: bodyWeight.label, score: bodyWeight.score }] : []),
       ];
       return {
         ...h,
@@ -161,7 +164,8 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
           (handicap?.score ?? 0) +
           (handicapDrop?.score ?? 0) +
           (shadaiLayoff?.score ?? 0) +
-          (abandonment?.score ?? 0),
+          (abandonment?.score ?? 0) +
+          (bodyWeight?.score ?? 0),
         applied: [...applied, ...extra],
       };
     });

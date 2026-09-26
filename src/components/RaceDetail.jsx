@@ -15,6 +15,7 @@ import {
   jockeyAbandonmentAdjustment,
   paddockAdjustment,
   wetTrackAdjustment,
+  bodyWeightAdjustment,
   computeMarks,
 } from "../lib/scoring";
 import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
@@ -220,6 +221,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           raceJockeyContext
         );
         const wetTrack = wetTrackAdjustment(wetTrackMode, h.forwardRatio, h.styleSampleSize);
+        const bodyWeight = bodyWeightAdjustment(race.grade, h.bataiju, race.place);
         const extra = [
           ...(aiAdjustment !== 0 ? [{ label: "AI評価", score: aiAdjustment }] : []),
           ...(bias ? [{ label: bias.label, score: bias.score }] : []),
@@ -230,6 +232,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
           ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
           ...(wetTrack ? [{ label: wetTrack.label, score: wetTrack.score }] : []),
+          ...(bodyWeight ? [{ label: bodyWeight.label, score: bodyWeight.score }] : []),
         ];
         const extraTotal =
           aiAdjustment +
@@ -240,7 +243,8 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           (handicapDrop?.score ?? 0) +
           (abandonment?.score ?? 0) +
           (shadaiLayoff?.score ?? 0) +
-          (wetTrack?.score ?? 0);
+          (wetTrack?.score ?? 0) +
+          (bodyWeight?.score ?? 0);
         const hasPastData = Boolean(jvPast && jvPast.length > 0);
         return {
           ...h,
