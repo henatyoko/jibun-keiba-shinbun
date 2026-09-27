@@ -8,7 +8,7 @@ import { PLACE_NAMES, gradeBadge, raceTitle, distanceLabel } from "./jvCodeTable
 // (race_shosai=RA レース詳細, umagoto_race_joho=SE 馬ごとレース情報,
 //  kyosoba_master2=競走馬マスタ)を読む。データが無い場合はモックにフォールバックする。
 const RACE_SHOSAI_COLUMNS =
-  "race_code, kaisai_nen, kaisai_gappi, keibajo_code, race_bango, kyosomei_hondai, grade_code, kyoso_shubetsu_code, kyoso_joken_code_2sai, kyoso_joken_code_3sai, kyoso_joken_code_4sai, kyoso_joken_code_5sai_ijo, kyoso_joken_code_saijakunen, kyori, track_code, hasso_jikoku, juryo_shubetsu_code";
+  "race_code, kaisai_nen, kaisai_gappi, keibajo_code, race_bango, kyosomei_hondai, grade_code, kyoso_shubetsu_code, kyoso_joken_code_2sai, kyoso_joken_code_3sai, kyoso_joken_code_4sai, kyoso_joken_code_5sai_ijo, kyoso_joken_code_saijakunen, kyori, track_code, hasso_jikoku, juryo_shubetsu_code, toroku_tosu";
 
 export async function fetchRaces() {
   if (!isSupabaseConfigured) return MOCK_RACES;
@@ -166,7 +166,28 @@ async function assembleRaces(raceRows, isPastReview) {
     return [...byKey.values()];
   })();
 
-  const horseIds = [...new Set(dedupedEntryRows.map((e) => e.ketto_toroku_bango))];
+  // 登録段階(前日発表など)で一旦登録されたが、抽選漏れ等で最終的には出走しなかった馬は、
+  // 確定馬番("00"以外)を一度も受け取らないまま"00"の行だけが残り続けることがある
+  // (このレースは実際には出走していないのに、うちのアプリ上では枠番未定の馬として
+  // 表示され続けてしまう)。そのレースの確定頭数(toroku_tosu)分、既に確定馬番が
+  // 揃っているなら、残った"00"のみの馬は出走取消・抽選漏れとみなして除外する。
+  const torokuTosuByRaceCode = Object.fromEntries(
+    raceRows.map((r) => [r.race_code, Number(r.toroku_tosu) || 0])
+  );
+  const confirmedCountByRaceCode = {};
+  dedupedEntryRows.forEach((e) => {
+    if (e.umaban !== "00") {
+      confirmedCountByRaceCode[e.race_code] = (confirmedCountByRaceCode[e.race_code] || 0) + 1;
+    }
+  });
+  const filteredEntryRows = dedupedEntryRows.filter((e) => {
+    if (e.umaban !== "00") return true;
+    const toroku = torokuTosuByRaceCode[e.race_code];
+    const confirmed = confirmedCountByRaceCode[e.race_code] || 0;
+    return !(toroku > 0 && confirmed >= toroku);
+  });
+
+  const horseIds = [...new Set(filteredEntryRows.map((e) => e.ketto_toroku_bango))];
 
   const [{ rows: oddsRows }, { data: sireRows }] = await Promise.all([
     oddsPromise,
@@ -214,7 +235,7 @@ async function assembleRaces(raceRows, isPastReview) {
   );
 
   const entriesByRaceCode = {};
-  dedupedEntryRows.forEach((e) => {
+  filteredEntryRows.forEach((e) => {
     (entriesByRaceCode[e.race_code] ||= []).push(e);
   });
 
