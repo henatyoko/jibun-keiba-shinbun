@@ -20,6 +20,7 @@ export async function fetchJvPastRaces(horseIds, beforeRaceCode) {
       .lt("race_code", beforeRaceCode)
       .not("kakutei_chakujun", "is", null)
       .neq("kakutei_chakujun", "")
+      .neq("kakutei_chakujun", "00")
       .order("race_code", { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
     if (error) return {};

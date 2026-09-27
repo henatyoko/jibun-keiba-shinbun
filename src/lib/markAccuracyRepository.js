@@ -97,6 +97,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       .gte("race_code", `${cutoffPrefix}0000000000`)
       .not("kakutei_chakujun", "is", null)
       .neq("kakutei_chakujun", "")
+      .neq("kakutei_chakujun", "00")
       .order("race_code", { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
     if (error) return null;
