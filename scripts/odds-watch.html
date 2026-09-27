@@ -129,6 +129,10 @@
   .score .grp td { color: var(--text-2); font-size: 11px; font-weight: 600; padding-top: 8px; text-align: left; border-bottom: 0; }
   .score .foot { color: var(--text-3); font-size: 11px; margin-top: 6px; }
   .result-line { font-weight: 700; margin-left: 4px; }
+  .money { margin: 18px 0 0; }
+  .money h4 { font-size: 13px; margin: 0 0 6px; }
+  .money .amount { font-weight: 700; font-size: 15px; }
+  .money .unusual { color: var(--alert); font-weight: 700; }
   .alert-item .body { margin-top: 3px; }
   .alert-item.fresh { animation: flash 2s ease-out; }
   @keyframes flash { from { background: var(--alert-soft); } to { background: transparent; } }
@@ -253,6 +257,7 @@ function renderMain() {
     return { ...h, gain: (h.est.at(-1) ?? first) - first, firstOdds, lastOdds };
   }).sort((a, b) => b.gain - a.gain);
   const maxGain = Math.max(1, ...rows.map((r) => r.gain));
+  const moneyLog = bigInflows(race);
 
   el.innerHTML = head + `
     <div class="stats">
@@ -294,7 +299,59 @@ function renderMain() {
           </div></td>
         </tr>`;
       }).join("")}</tbody>
-    </table>`;
+    </table>
+    <section class="money">
+      <h4>${man(state.settings.minYen)}以上入った記録(新しい順・${moneyLog.length}件)</h4>
+      <p class="note">公式オッズが1回更新される間に、1頭に入った推定額。「この間の取り分」がそれまでの取り分の2倍以上なら赤字(普段と違う入り方)。</p>
+      ${moneyLog.length === 0 ? `<div class="empty">まだありません</div>` : `<table>
+        <thead><tr>
+          <th class="l">発表時刻</th><th class="l"></th><th class="l">馬番</th><th class="l">馬名</th>
+          <th>入った額(推定)</th><th>この間の取り分</th><th>それまでの取り分</th><th>オッズ</th><th>着順</th>
+        </tr></thead>
+        <tbody>${moneyLog.map((m) => `<tr>
+          <td class="l">${hms(m.at)}</td>
+          <td class="l"><span class="phase ${m.phase}">${m.phase === "pre" ? "締切前" : "締切後"}</span></td>
+          <td class="l">${Number(m.umaban)}</td>
+          <td class="l">${esc(m.name)}</td>
+          <td><span class="amount">+${man(m.inflow)}</span></td>
+          <td class="${m.unusual ? "unusual" : ""}">${Math.round(m.shareNow * 100)}%</td>
+          <td>${Math.round(m.shareBefore * 100)}%</td>
+          <td>${m.from}→${m.to}倍</td>
+          <td>${rankBadge(race, m.umaban)}</td>
+        </tr>`).join("")}</tbody>
+      </table>`}
+    </section>`;
+}
+
+// 公式オッズの更新ごとに、1頭へ設定額以上入った瞬間を拾う(アラートの条件とは別に、金額だけで全部出す)
+function bigInflows(race) {
+  const close = new Date(race.close);
+  const log = [];
+  for (let i = 1; i < race.times.length; i++) {
+    const poolIn = race.pools[i] - race.pools[i - 1];
+    if (poolIn <= 0) continue;
+    for (const h of race.horses) {
+      const prev = h.est[i - 1], cur = h.est[i];
+      if (prev == null || cur == null) continue;
+      const inflow = cur - prev;
+      if (inflow < state.settings.minYen) continue;
+      const shareBefore = prev / race.pools[i - 1];
+      const shareNow = inflow / poolIn;
+      log.push({
+        at: race.times[i],
+        phase: new Date(race.times[i].replace(" ", "T")) < close ? "pre" : "post",
+        umaban: h.umaban,
+        name: h.name,
+        inflow,
+        shareNow,
+        shareBefore,
+        unusual: shareNow >= shareBefore * 2,
+        from: h.odds[i - 1],
+        to: h.odds[i],
+      });
+    }
+  }
+  return log.sort((a, b) => b.at.localeCompare(a.at) || b.inflow - a.inflow);
 }
 
 function renderFeed() {

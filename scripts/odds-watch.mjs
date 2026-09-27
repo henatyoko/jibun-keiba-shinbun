@@ -362,7 +362,6 @@ function raceState(race, names) {
 }
 
 function startServer(races, names) {
-  const page = readFileSync(new URL("./odds-watch.html", import.meta.url));
   const server = createServer((req, res) => {
     if (req.url === "/api/state") {
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
@@ -375,8 +374,9 @@ function startServer(races, names) {
       );
       return;
     }
+    // 画面の変更がブラウザの再読み込みだけで反映されるよう、毎回ファイルから読む
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(page);
+    res.end(readFileSync(new URL("./odds-watch.html", import.meta.url)));
   });
   server.on("error", (err) => {
     if (err.code !== "EADDRINUSE") throw err;
