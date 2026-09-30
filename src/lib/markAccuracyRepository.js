@@ -29,12 +29,24 @@ function addToTally(tally, mark, result) {
   if (result && result <= 3) tally[mark].hit += 1;
 }
 
-// 印が付いた馬(◎○▲△穴)をまとめて3連複BOXで買ったと仮定した時の的中判定。
-// 実際の上位3着が全員この印の中に入っていればBOX的中(頭数・買い目の並びは問わない)。
+// 印が付いた馬(◎○▲△穴)をまとめてBOXで買ったと仮定した時の的中判定。
+// 上位3着が全員印の中に入っていれば3連複BOX的中、2頭だけならワイドBOX的中
+// (上位3着のうちどの2頭の組み合わせでもよい)。不的中は表示不要のためnullを返す。
 function computeBoxHit(race, markedNums) {
   const top3 = race.horses.filter((h) => h.result && h.result <= 3);
   if (top3.length < 3 || markedNums.size === 0) return null;
-  return top3.every((h) => markedNums.has(h.num));
+  const hitCount = top3.filter((h) => markedNums.has(h.num)).length;
+  if (hitCount === 3) return "trifecta";
+  if (hitCount === 2) return "wide";
+  return null;
+}
+
+// ◎の馬が単勝的中(1着)したかどうかの判定。
+function computeTanshoHit(race, honshiNum) {
+  if (honshiNum == null) return null;
+  const honshi = race.horses.find((h) => h.num === honshiNum);
+  if (!honshi || !honshi.result) return null;
+  return honshi.result === 1;
 }
 
 // 振り返り表示中の全レースについて、印(◎○▲△穴)ごとの「3位以内的中率」を集計する。
@@ -66,14 +78,16 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     .forEach((race) => {
       const snap = snapshotsByRace[race.id];
       const markedNums = new Set();
+      let honshiNum = null;
       race.horses.forEach((h) => {
         const row = snap[h.num];
         if (row) {
           addToTally(tally, row.mark, h.result);
           if (row.mark) markedNums.add(h.num);
+          if (row.mark === "◎") honshiNum = h.num;
         }
       });
-      perRace[race.id] = { boxHit: computeBoxHit(race, markedNums) };
+      perRace[race.id] = { boxHit: computeBoxHit(race, markedNums), tanshoHit: computeTanshoHit(race, honshiNum) };
     });
 
   if (racesNeedingCompute.length === 0) return { tally, perRace };
@@ -189,11 +203,13 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     const { marksByNum, noDifferentiation } = computeMarks(withRank);
 
     const markedNums = new Set();
+    let honshiNum = null;
     withRank.forEach((h) => {
       addToTally(tally, marksByNum[h.num], h.result);
       if (marksByNum[h.num]) markedNums.add(h.num);
+      if (marksByNum[h.num] === "◎") honshiNum = h.num;
     });
-    perRace[race.id] = { boxHit: computeBoxHit(race, markedNums) };
+    perRace[race.id] = { boxHit: computeBoxHit(race, markedNums), tanshoHit: computeTanshoHit(race, honshiNum) };
 
     if (!noDifferentiation) {
       saveSnapshotIfMissing(race.id, withRank, marksByNum).catch(() => {});

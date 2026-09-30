@@ -155,20 +155,24 @@ export default function RaceList({
               </div>
               <ChevronRight size={16} color={INK} />
             </div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h2 className="text-lg font-bold" style={{ color: INK, fontFamily: "'Shippori Mincho', serif" }}>
                 {race.name}
               </h2>
+              {perRaceBox[race.id]?.tanshoHit && (
+                <span
+                  className="text-[0.625rem] font-bold px-1.5 py-0.5 shrink-0"
+                  style={{ color: PAPER, background: RED, border: `1px solid ${RED}` }}
+                >
+                  単勝的中
+                </span>
+              )}
               {perRaceBox[race.id]?.boxHit != null && (
                 <span
                   className="text-[0.625rem] font-bold px-1.5 py-0.5 shrink-0"
-                  style={{
-                    color: perRaceBox[race.id].boxHit ? PAPER : MUTED,
-                    background: perRaceBox[race.id].boxHit ? RED : "transparent",
-                    border: `1px solid ${perRaceBox[race.id].boxHit ? RED : MUTED}`,
-                  }}
+                  style={{ color: PAPER, background: RED, border: `1px solid ${RED}` }}
                 >
-                  {perRaceBox[race.id].boxHit ? "BOX的中" : "BOX不的中"}
+                  {perRaceBox[race.id].boxHit === "trifecta" ? "3連複BOX的中" : "ワイドBOX的中"}
                 </span>
               )}
             </div>
