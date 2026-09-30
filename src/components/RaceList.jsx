@@ -42,16 +42,20 @@ export default function RaceList({
   }, [date, place]);
 
   const [markAccuracy, setMarkAccuracy] = useState(null);
+  const [perRaceBox, setPerRaceBox] = useState({});
 
-  // 振り返り表示の時だけ、印(◎○▲)ごとの3位以内的中率を集計する
+  // 振り返り表示の時だけ、印(◎○▲)ごとの3位以内的中率と、レースごとの3連複BOX的中を集計する
   useEffect(() => {
     if (!races[0]?.isPastReview) {
       setMarkAccuracy(null);
+      setPerRaceBox({});
       return;
     }
     let cancelled = false;
     computeMarkAccuracy(races, attrRules ?? [], trendRules ?? []).then((result) => {
-      if (!cancelled) setMarkAccuracy(result);
+      if (cancelled || !result) return;
+      setMarkAccuracy(result.tally);
+      setPerRaceBox(result.perRace ?? {});
     });
     return () => {
       cancelled = true;
@@ -151,9 +155,23 @@ export default function RaceList({
               </div>
               <ChevronRight size={16} color={INK} />
             </div>
-            <h2 className="text-lg font-bold mb-1" style={{ color: INK, fontFamily: "'Shippori Mincho', serif" }}>
-              {race.name}
-            </h2>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-lg font-bold" style={{ color: INK, fontFamily: "'Shippori Mincho', serif" }}>
+                {race.name}
+              </h2>
+              {perRaceBox[race.id]?.boxHit != null && (
+                <span
+                  className="text-[0.625rem] font-bold px-1.5 py-0.5 shrink-0"
+                  style={{
+                    color: perRaceBox[race.id].boxHit ? PAPER : MUTED,
+                    background: perRaceBox[race.id].boxHit ? RED : "transparent",
+                    border: `1px solid ${perRaceBox[race.id].boxHit ? RED : MUTED}`,
+                  }}
+                >
+                  {perRaceBox[race.id].boxHit ? "BOX的中" : "BOX不的中"}
+                </span>
+              )}
+            </div>
             <p className="text-xs" style={{ color: MUTED }}>
               {race.place}
               {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}

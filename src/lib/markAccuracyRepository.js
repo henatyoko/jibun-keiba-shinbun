@@ -29,6 +29,14 @@ function addToTally(tally, mark, result) {
   if (result && result <= 3) tally[mark].hit += 1;
 }
 
+// 印が付いた馬(◎○▲△穴)をまとめて3連複BOXで買ったと仮定した時の的中判定。
+// 実際の上位3着が全員この印の中に入っていればBOX的中(頭数・買い目の並びは問わない)。
+function computeBoxHit(race, markedNums) {
+  const top3 = race.horses.filter((h) => h.result && h.result <= 3);
+  if (top3.length < 3 || markedNums.size === 0) return null;
+  return top3.every((h) => markedNums.has(h.num));
+}
+
 // 振り返り表示中の全レースについて、印(◎○▲△穴)ごとの「3位以内的中率」を集計する。
 // ロジック変更をしても過去レースの答え合わせが遡って変わらないよう、race_snapshotsに
 // 固定結果があるレースはそれをそのまま使う(重い再計算を省略できる分、速くもなる)。
@@ -48,6 +56,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
   });
 
   const tally = emptyTally();
+  const perRace = {};
 
   const racesNeedingCompute = pastReviewRaces.filter((race) => !snapshotsByRace[race.id]);
 
@@ -56,13 +65,18 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     .filter((race) => snapshotsByRace[race.id])
     .forEach((race) => {
       const snap = snapshotsByRace[race.id];
+      const markedNums = new Set();
       race.horses.forEach((h) => {
         const row = snap[h.num];
-        if (row) addToTally(tally, row.mark, h.result);
+        if (row) {
+          addToTally(tally, row.mark, h.result);
+          if (row.mark) markedNums.add(h.num);
+        }
       });
+      perRace[race.id] = { boxHit: computeBoxHit(race, markedNums) };
     });
 
-  if (racesNeedingCompute.length === 0) return tally;
+  if (racesNeedingCompute.length === 0) return { tally, perRace };
 
   // 同日開催なので馬は1回しか出走しない前提で、馬ID→そのレースのrace_codeを引けるようにする
   const horseRaceCode = {};
@@ -72,7 +86,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     });
   });
   const horseIds = Object.keys(horseRaceCode);
-  if (horseIds.length === 0) return tally;
+  if (horseIds.length === 0) return { tally, perRace };
 
   // 全馬の全キャリア(2018年〜)を毎回読むと重いため、直近450日분だけに絞る
   // (基礎点は直近5走しか使わないので、それより古い分を取っても意味が無い)。
@@ -174,14 +188,17 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     const withRank = scored.map((h) => ({ ...h, rank: byScore.findIndex((x) => x.horseId === h.horseId) }));
     const { marksByNum, noDifferentiation } = computeMarks(withRank);
 
+    const markedNums = new Set();
     withRank.forEach((h) => {
       addToTally(tally, marksByNum[h.num], h.result);
+      if (marksByNum[h.num]) markedNums.add(h.num);
     });
+    perRace[race.id] = { boxHit: computeBoxHit(race, markedNums) };
 
     if (!noDifferentiation) {
       saveSnapshotIfMissing(race.id, withRank, marksByNum).catch(() => {});
     }
   });
 
-  return tally;
+  return { tally, perRace };
 }
