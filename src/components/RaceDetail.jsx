@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ChevronLeft, Share2 } from "lucide-react";
 import GradeChip from "./GradeChip";
 import WakuBadge from "./WakuBadge";
@@ -44,8 +44,10 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [wetTrackMode, setWetTrackMode] = useState(false);
   const canNativeShare = typeof navigator !== "undefined" && Boolean(navigator.share);
 
-  // レースが切り替わった時、前のレースでのスクロール位置や並び順を引き継がない
-  useEffect(() => {
+  // レースが切り替わった時、前のレースでのスクロール位置や並び順を引き継がない。
+  // useEffectだと描画後に実行されるため前のレースの途中スクロール位置が一瞬見えてしまう。
+  // useLayoutEffectでブラウザが描画する前にスクロール位置を戻す。
+  useLayoutEffect(() => {
     window.scrollTo(0, 0);
     setSortMode("score");
     setShareText(null);
