@@ -91,3 +91,15 @@ export function distanceLabel(trackCode, kyori) {
   const prefix = n >= 51 ? "障" : n >= 23 ? "ダ" : "芝";
   return `${prefix}${kyori}m`;
 }
+
+const BABA_LABELS = { 1: "良", 2: "稍重", 3: "重", 4: "不良" };
+
+// 芝(10-22)ならshiba_babajotai_code、ダート(23-29)ならdirt_babajotai_code。
+// 馬場状態が未発表("0")・障害などは null。
+export function trackConditionLabel(race) {
+  const n = Number(race.track_code);
+  let code = null;
+  if (n >= 10 && n <= 22) code = Number(race.shiba_babajotai_code);
+  else if (n >= 23 && n <= 29) code = Number(race.dirt_babajotai_code);
+  return BABA_LABELS[code] ?? null;
+}

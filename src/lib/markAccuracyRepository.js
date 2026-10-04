@@ -9,9 +9,11 @@ import {
   shadaiLayoffAdjustment,
   jockeyAbandonmentAdjustment,
   bodyWeightAdjustment,
+  wetSpecialistAdjustment,
   computeMarks,
 } from "./scoring";
 import { saveSnapshotIfMissing } from "./raceSnapshotRepository";
+import { fetchWetRecords } from "./wetRecordRepository";
 
 function emptyTally() {
   return {
@@ -145,6 +147,19 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     jvPastByHorse[horseId] = (rowsByHorse[horseId] || []).filter((r) => r.race_code < cutoff).slice(0, 5);
   });
 
+  // 重・不良のレースだけ、道悪巧者判定用の過去の馬場別成績を取る
+  const wetRecordsByRace = {};
+  await Promise.all(
+    racesNeedingCompute
+      .filter((race) => race.trackCondition === "重" || race.trackCondition === "不良")
+      .map(async (race) => {
+        wetRecordsByRace[race.id] = await fetchWetRecords(
+          race.horses.map((h) => h.horseId).filter(Boolean),
+          race.id
+        );
+      })
+  );
+
   racesNeedingCompute.forEach((race) => {
     const futanJuryoList = race.horses.map((h) => h.futanJuryo).filter((v) => Number.isFinite(v));
     const fieldAvgFutanJuryo =
@@ -172,6 +187,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
         raceJockeyContext
       );
       const bodyWeight = bodyWeightAdjustment(race.grade, h.bataiju, race.place);
+      const wetSpecialist = wetSpecialistAdjustment(race.trackCondition, wetRecordsByRace[race.id]?.[h.horseId]);
       const extra = [
         ...(bias ? [{ label: bias.label, score: bias.score }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
@@ -180,6 +196,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
         ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
         ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
         ...(bodyWeight ? [{ label: bodyWeight.label, score: bodyWeight.score }] : []),
+        ...(wetSpecialist ? [{ label: wetSpecialist.label, score: wetSpecialist.score }] : []),
       ];
       return {
         ...h,
@@ -194,7 +211,8 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
           (handicapDrop?.score ?? 0) +
           (shadaiLayoff?.score ?? 0) +
           (abandonment?.score ?? 0) +
-          (bodyWeight?.score ?? 0),
+          (bodyWeight?.score ?? 0) +
+          (wetSpecialist?.score ?? 0),
         applied: [...applied, ...extra],
       };
     });

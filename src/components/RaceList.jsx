@@ -179,6 +179,7 @@ export default function RaceList({
             <p className="text-xs" style={{ color: MUTED }}>
               {race.place}
               {race.raceNumber ? `${race.raceNumber}R` : ""}・{race.distance}
+              {race.trackCondition ? `・馬場${race.trackCondition}` : ""}
             </p>
             {race.isPastReview && (() => {
               const top3 = race.horses

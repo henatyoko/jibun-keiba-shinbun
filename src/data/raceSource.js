@@ -1,6 +1,6 @@
 import { MOCK_RACES } from "./mockRaces";
 import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
-import { PLACE_NAMES, gradeBadge, raceTitle, distanceLabel } from "./jvCodeTables";
+import { PLACE_NAMES, gradeBadge, raceTitle, distanceLabel, trackConditionLabel } from "./jvCodeTables";
 
 // レース・出走馬データの取得口。
 //
@@ -8,7 +8,7 @@ import { PLACE_NAMES, gradeBadge, raceTitle, distanceLabel } from "./jvCodeTable
 // (race_shosai=RA レース詳細, umagoto_race_joho=SE 馬ごとレース情報,
 //  kyosoba_master2=競走馬マスタ)を読む。データが無い場合はモックにフォールバックする。
 const RACE_SHOSAI_COLUMNS =
-  "race_code, kaisai_nen, kaisai_gappi, keibajo_code, race_bango, kyosomei_hondai, grade_code, kyoso_shubetsu_code, kyoso_joken_code_2sai, kyoso_joken_code_3sai, kyoso_joken_code_4sai, kyoso_joken_code_5sai_ijo, kyoso_joken_code_saijakunen, kyori, track_code, hasso_jikoku, juryo_shubetsu_code, toroku_tosu";
+  "race_code, kaisai_nen, kaisai_gappi, keibajo_code, race_bango, kyosomei_hondai, grade_code, kyoso_shubetsu_code, kyoso_joken_code_2sai, kyoso_joken_code_3sai, kyoso_joken_code_4sai, kyoso_joken_code_5sai_ijo, kyoso_joken_code_saijakunen, kyori, track_code, hasso_jikoku, juryo_shubetsu_code, toroku_tosu, shiba_babajotai_code, dirt_babajotai_code";
 
 export async function fetchRaces() {
   if (!isSupabaseConfigured) return MOCK_RACES;
@@ -212,9 +212,7 @@ async function assembleRaces(raceRows, isPastReview) {
   const pedigreeIdsByHorseId = Object.fromEntries(
     (sireRows || []).map((s) => [s.ketto_toroku_bango, { sireId: s.ketto1_hanshoku_toroku_bango, damsireId: s.ketto5_hanshoku_toroku_bango }])
   );
-  // 逃げ/先行の合計を「前有り率」として持たせる(重馬場補正で使う)。
-  // サンプルが少なすぎる馬(3走未満)は補正の対象外にしたいので件数も持たせる。
-  // 表示用に、通算で一番多いカテゴリ(逃げ/先行/差し/追込)も脚質ラベルとして持たせる。
+  // 表示用に、通算で一番多いカテゴリ(逃げ/先行/差し/追込)を脚質ラベルとして持たせる。
   const styleByHorseId = Object.fromEntries(
     (sireRows || []).map((s) => {
       const nige = Number(s.kyakushitsu_keiko_nige) || 0;
@@ -229,7 +227,7 @@ async function assembleRaces(raceRows, isPastReview) {
       }
       return [
         s.ketto_toroku_bango,
-        { forwardRatio: total > 0 ? (nige + senko) / total : null, styleSampleSize: total, runningStyle },
+        { runningStyle },
       ];
     })
   );
@@ -256,8 +254,6 @@ async function assembleRaces(raceRows, isPastReview) {
           distanceStats: distanceStatsByHorseId[h.ketto_toroku_bango] || null,
           sireId: pedigreeIdsByHorseId[h.ketto_toroku_bango]?.sireId || null,
           damsireId: pedigreeIdsByHorseId[h.ketto_toroku_bango]?.damsireId || null,
-          forwardRatio: styleByHorseId[h.ketto_toroku_bango]?.forwardRatio ?? null,
-          styleSampleSize: styleByHorseId[h.ketto_toroku_bango]?.styleSampleSize ?? 0,
           runningStyle: styleByHorseId[h.ketto_toroku_bango]?.runningStyle ?? null,
           jockey: h.kishumei_ryakusho?.trim(),
           trainer: h.chokyoshimei_ryakusho?.trim() || null,
@@ -279,6 +275,7 @@ async function assembleRaces(raceRows, isPastReview) {
       place: PLACE_NAMES[race.keibajo_code] || race.keibajo_code,
       raceNumber: Number(race.race_bango),
       distance: distanceLabel(race.track_code, race.kyori),
+      trackCondition: trackConditionLabel(race),
       rawDate,
       date: formatRaceDate(rawDate, race.hasso_jikoku),
       isPastReview,

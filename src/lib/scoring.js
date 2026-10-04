@@ -14,16 +14,19 @@ export function courseBiasAdjustment(waku, place, distanceStr) {
   return { label: bias.label, score };
 }
 
-// ユーザーが「今日は雨・重馬場で先行有利」と手動でオンにした時だけ効く補正。
-// 逃げ・先行の合計比率(forwardRatio)が高い馬を加点、低い(差し・追込)馬を減点する。
-// サンプルが3走未満の馬は判断材料が薄いので対象外。90日分のバックテストで
-// 全体+0.6pt程度とはっきりした効果ではなかったため、常時自動適用はせず、
-// ユーザー自身がその日の馬場を見て判断するスイッチとしてのみ使う。
-export function wetTrackAdjustment(enabled, forwardRatio, styleSampleSize) {
-  if (!enabled || forwardRatio == null || !Number.isFinite(styleSampleSize) || styleSampleSize < 3) return null;
-  const score = Math.max(-2, Math.min(2, Math.round((forwardRatio - 0.5) * 4)));
-  if (score === 0) return null;
-  return { label: `重馬場補正・前有り${Math.round(forwardRatio * 100)}%`, score };
+// 当日の馬場が重・不良の時だけ、過去の重・不良での3着内率が良馬場より20pt以上高い
+// 「道悪巧者」に+1点。2025年以降約8万出走のバックテストで、人気を控除しても
+// 道悪巧者は重・不良で3着内率が+5pt(n=398)上振れした。一方、脚質(先行有利)は
+// 馬場に関係なく常に効いていて、道悪での上積みは±2〜3pt程度の誤差範囲だったため
+// 脚質補正は採用していない。「道悪苦手」への減点も根拠が出なかったので行わない。
+// wetRecord: { wetStarts, wetTop3, goodStarts, goodTop3 } (重・不良/良での過去走)
+export function wetSpecialistAdjustment(trackCondition, wetRecord) {
+  if (trackCondition !== "重" && trackCondition !== "不良") return null;
+  if (!wetRecord) return null;
+  const { wetStarts, wetTop3, goodStarts, goodTop3 } = wetRecord;
+  if (wetStarts < 2 || goodStarts < 2) return null;
+  if (wetTop3 / wetStarts - goodTop3 / goodStarts < 0.2) return null;
+  return { label: `道悪巧者(重不良${wetTop3}/${wetStarts})`, score: 1 };
 }
 
 // G1・G2限定、馬体重500kg以上に加点する。中山は最後の直線に高低差2.2mの坂があり、
