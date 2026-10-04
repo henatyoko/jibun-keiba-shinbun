@@ -16,10 +16,12 @@ import {
   paddockAdjustment,
   wetSpecialistAdjustment,
   bodyWeightAdjustment,
+  sameCourseAdjustment,
   computeMarks,
 } from "../lib/scoring";
 import { fetchJvPastRaces } from "../lib/jvHorseHistoryRepository";
 import { fetchWetRecords } from "../lib/wetRecordRepository";
+import { fetchSameCourseRecords } from "../lib/sameCourseRecordRepository";
 import { fetchAiNotes } from "../lib/aiNotesRepository";
 import { fetchRacePayouts } from "../lib/payoutRepository";
 import { fetchPedigreeAptitude } from "../lib/pedigreeAptitudeRepository";
@@ -43,6 +45,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [shareCopyFailed, setShareCopyFailed] = useState(false);
   const [shareText, setShareText] = useState(null);
   const [wetRecordByHorse, setWetRecordByHorse] = useState({});
+  const [sameCourseRecordByHorse, setSameCourseRecordByHorse] = useState({});
   const canNativeShare = typeof navigator !== "undefined" && Boolean(navigator.share);
 
   // レースが切り替わった時、前のレースでのスクロール位置や並び順を引き継がない。
@@ -110,15 +113,17 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
 
       const horseIds = race.horses.map((h) => h.horseId).filter(Boolean);
       const isWetDay = race.trackCondition === "重" || race.trackCondition === "不良";
-      const [jvPast, pedigree, wetRecords] = await Promise.all([
+      const [jvPast, pedigree, wetRecords, sameCourseRecords] = await Promise.all([
         fetchJvPastRaces(horseIds, race.id),
         fetchPedigreeAptitude(race.horses),
         isWetDay ? fetchWetRecords(horseIds, race.id) : Promise.resolve({}),
+        fetchSameCourseRecords(horseIds, race.id, race.distance),
       ]);
       if (cancelled) return;
       setJvPastByHorse(jvPast);
       setPedigreeStatsById(pedigree);
       setWetRecordByHorse(wetRecords);
+      setSameCourseRecordByHorse(sameCourseRecords);
       const notes = await fetchAiNotes(race.horses, jvPast);
       if (cancelled) return;
       setNotesByHorse(notes);
@@ -227,6 +232,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         );
         const wetSpecialist = wetSpecialistAdjustment(race.trackCondition, wetRecordByHorse[h.horseId]);
         const bodyWeight = bodyWeightAdjustment(race.grade, h.bataiju, race.place);
+        const sameCourse = sameCourseAdjustment(sameCourseRecordByHorse[h.horseId]);
         const extra = [
           ...(aiAdjustment !== 0 ? [{ label: "AI評価", score: aiAdjustment }] : []),
           ...(bias ? [{ label: bias.label, score: bias.score }] : []),
@@ -238,6 +244,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
           ...(wetSpecialist ? [{ label: wetSpecialist.label, score: wetSpecialist.score }] : []),
           ...(bodyWeight ? [{ label: bodyWeight.label, score: bodyWeight.score }] : []),
+          ...(sameCourse ? [{ label: sameCourse.label, score: sameCourse.score }] : []),
         ];
         const extraTotal =
           aiAdjustment +
@@ -249,7 +256,8 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           (abandonment?.score ?? 0) +
           (shadaiLayoff?.score ?? 0) +
           (wetSpecialist?.score ?? 0) +
-          (bodyWeight?.score ?? 0);
+          (bodyWeight?.score ?? 0) +
+          (sameCourse?.score ?? 0);
         const hasPastData = Boolean(jvPast && jvPast.length > 0);
         return {
           ...h,
@@ -267,7 +275,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     const byScore = [...base].sort((a, b) => b.total - a.total);
     const rankByHorseId = new Map(byScore.map((h, idx) => [h.horseId, idx]));
     return base.map((h) => ({ ...h, rank: rankByHorseId.get(h.horseId) }));
-  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum, pedigreeStatsById, wetRecordByHorse, snapshot]);
+  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum, pedigreeStatsById, wetRecordByHorse, sameCourseRecordByHorse, snapshot]);
 
   // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
   // 紛らわしいため印・強調表示を出さない。読み込み中も未確定の印を出さない。

@@ -9,11 +9,13 @@ import {
   shadaiLayoffAdjustment,
   jockeyAbandonmentAdjustment,
   bodyWeightAdjustment,
+  sameCourseAdjustment,
   wetSpecialistAdjustment,
   computeMarks,
 } from "./scoring";
 import { saveSnapshotIfMissing } from "./raceSnapshotRepository";
 import { fetchWetRecords } from "./wetRecordRepository";
+import { fetchSameCourseRecords } from "./sameCourseRecordRepository";
 
 function emptyTally() {
   return {
@@ -160,6 +162,18 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       })
   );
 
+  // 同コース好走判定用の、同じ競馬場・距離・芝ダでの過去成績
+  const sameCourseRecordsByRace = {};
+  await Promise.all(
+    racesNeedingCompute.map(async (race) => {
+      sameCourseRecordsByRace[race.id] = await fetchSameCourseRecords(
+        race.horses.map((h) => h.horseId).filter(Boolean),
+        race.id,
+        race.distance
+      );
+    })
+  );
+
   racesNeedingCompute.forEach((race) => {
     const futanJuryoList = race.horses.map((h) => h.futanJuryo).filter((v) => Number.isFinite(v));
     const fieldAvgFutanJuryo =
@@ -188,6 +202,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       );
       const bodyWeight = bodyWeightAdjustment(race.grade, h.bataiju, race.place);
       const wetSpecialist = wetSpecialistAdjustment(race.trackCondition, wetRecordsByRace[race.id]?.[h.horseId]);
+      const sameCourse = sameCourseAdjustment(sameCourseRecordsByRace[race.id]?.[h.horseId]);
       const extra = [
         ...(bias ? [{ label: bias.label, score: bias.score }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
@@ -197,6 +212,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
         ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
         ...(bodyWeight ? [{ label: bodyWeight.label, score: bodyWeight.score }] : []),
         ...(wetSpecialist ? [{ label: wetSpecialist.label, score: wetSpecialist.score }] : []),
+        ...(sameCourse ? [{ label: sameCourse.label, score: sameCourse.score }] : []),
       ];
       return {
         ...h,
@@ -212,7 +228,8 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
           (shadaiLayoff?.score ?? 0) +
           (abandonment?.score ?? 0) +
           (bodyWeight?.score ?? 0) +
-          (wetSpecialist?.score ?? 0),
+          (wetSpecialist?.score ?? 0) +
+          (sameCourse?.score ?? 0),
         applied: [...applied, ...extra],
       };
     });

@@ -29,6 +29,18 @@ export function wetSpecialistAdjustment(trackCondition, wetRecord) {
   return { label: `道悪巧者(重不良${wetTop3}/${wetStarts})`, score: 1 };
 }
 
+// 同じ競馬場・距離・芝/ダートで過去に3着内がある「同コース好走馬」に+5点。
+// 2026年1〜10月のJRA平地2526レースで、同コース3着内経験馬は基礎点から見た期待より
+// 3着内率が+8.0pt上振れ(n=6549、他コースでの3着内経験馬は+4.3pt)。印シミュレーションで
+// +1/+2/+3/+5を比較し、+5が◎○▲△全てで改善(前半・後半の期間分割でも同傾向)したため採用。
+// 「1着経験」だけに絞ると改善しなかったので、条件は3着内にしている。
+// sameCourseRecord: { starts, top3 } (同コースでの過去走)
+export function sameCourseAdjustment(sameCourseRecord) {
+  if (!sameCourseRecord || sameCourseRecord.top3 < 1) return null;
+  const { starts, top3 } = sameCourseRecord;
+  return { label: `同コース好走(${top3}/${starts})`, score: 5 };
+}
+
 // G1・G2限定、馬体重500kg以上に加点する。中山は最後の直線に高低差2.2mの坂があり、
 // 大型馬有利の傾向が他場より強く出ることをバックテストで確認済み(8年・382頭分、
 // 中山G1/G2: 500kg以上3着内30.8% vs 500kg未満17.6%、他場: 27.4% vs 18.3%)。
