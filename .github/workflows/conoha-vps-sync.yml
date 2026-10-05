@@ -44,8 +44,16 @@ jobs:
           fi
           echo "::add-mask::$TOKEN"
 
-          SERVER_ID=$(curl -sS "https://compute.c3j1.conoha.io/v2.1/servers/detail" -H "X-Auth-Token: $TOKEN" | jq -r '.servers[0].id')
-          echo "対象サーバー: $SERVER_ID"
+          SERVER=$(curl -sS "https://compute.c3j1.conoha.io/v2.1/servers/detail" -H "X-Auth-Token: $TOKEN")
+          SERVER_ID=$(echo "$SERVER" | jq -r '.servers[0].id')
+          SERVER_STATUS=$(echo "$SERVER" | jq -r '.servers[0].status')
+          echo "対象サーバー: $SERVER_ID (状態: $SERVER_STATUS)"
+
+          # 手動で起動しっぱなしにしている時は、こちらで止めてしまわないよう起動も停止もしない
+          if [ "$SERVER_STATUS" = "ACTIVE" ]; then
+            echo "VPSは既に起動中のため、起動・停止を行わずに終了します"
+            exit 0
+          fi
 
           echo "VPSを起動します..."
           curl -sS -X POST "https://compute.c3j1.conoha.io/v2.1/servers/$SERVER_ID/action" \
