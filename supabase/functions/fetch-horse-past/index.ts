@@ -13,11 +13,13 @@ const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
 const CACHE_HOURS = 72;
 
-const NOTE_SYSTEM_PROMPT = `あなたは競馬新聞のベテラン記者です。1頭の馬の直近成績データ(着順・人気・上がり3F)を見て、
+// 人気を上回る着順は予測力がほぼ無く(人気控除後+1pt)、前走3着内は+6pt・7着以下は-2.5ptだった(2025年〜4.5万頭)ため、人気は渡さない。
+const NOTE_SYSTEM_PROMPT = `あなたは競馬新聞のベテラン記者です。1頭の馬の直近成績データ(着順・上がり3F)を見て、
 競馬新聞の「短評」欄のような一言コメント(20〜40字程度、体言止めや新聞調でよい)と、
 その馬の今の調子を反映したスコア補正(-5〜+5の整数、絶好調なら+、不振なら-、
 互角なら0に近い値)をJSONで返してください。
-人気より着順が良い(人気を上回る好走)ほど高評価、上がり3Fが直近で速くなっているほど高評価にしてください。
+直近の着順が良いほど(特に前走の着順を重視)高評価、上がり3Fが直近で速くなっているほど高評価にしてください。
+人気・オッズのデータは渡されません。人気との比較には言及しないでください。
 
 出力は次のJSON形式のみとし、説明文やコードブロックは付けないでください。
 {"comment":"短評文","scoreAdjustment":整数}
@@ -135,12 +137,10 @@ async function generateHorseNote(
     .map((r) => {
       const finishNum = Number(r.kakutei_chakujun);
       const finish = Number.isFinite(finishNum) && finishNum > 0 ? `${finishNum}着` : "着順不明";
-      const ninkiNum = Number(r.tansho_ninkijun);
-      const ninki = Number.isFinite(ninkiNum) && ninkiNum > 0 ? `${ninkiNum}番人気` : "人気不明";
       const kohanNum = Number(r.kohan_3f);
       const kohan3f = Number.isFinite(kohanNum) && kohanNum > 0 && kohanNum < 900 ? `上がり${(kohanNum / 10).toFixed(1)}秒` : "";
-      if (finish === "着順不明" && ninki === "人気不明" && !kohan3f) return null;
-      return `${finish}(${ninki})${kohan3f ? " " + kohan3f : ""}`;
+      if (finish === "着順不明" && !kohan3f) return null;
+      return `${finish}${kohan3f ? " " + kohan3f : ""}`;
     })
     .filter((line): line is string => line !== null)
     .join("\n");
