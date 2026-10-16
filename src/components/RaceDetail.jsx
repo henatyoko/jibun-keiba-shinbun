@@ -9,13 +9,10 @@ import {
   distanceAptitudeAdjustment,
   hasOwnDistanceData,
   pedigreeAptitudeAdjustment,
-  handicapWeightAdjustment,
-  handicapWeightDropAdjustment,
   shadaiLayoffAdjustment,
   jockeyAbandonmentAdjustment,
   paddockAdjustment,
   wetSpecialistAdjustment,
-  bodyWeightAdjustment,
   sameCourseAdjustment,
   computeMarks,
 } from "../lib/scoring";
@@ -193,9 +190,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
       return base.map((h) => ({ ...h, rank: rankByHorseId.get(h.horseId) }));
     }
 
-    const futanJuryoList = race.horses.map((h) => h.futanJuryo).filter((v) => Number.isFinite(v));
-    const fieldAvgFutanJuryo =
-      futanJuryoList.length > 0 ? futanJuryoList.reduce((sum, v) => sum + v, 0) / futanJuryoList.length : null;
     // 「乗り捨て」判定のため、同じレースの全馬の(今回の騎手, 前走の騎手)を先に集めておく
     const raceJockeyContext = race.horses.map((h) => ({
       horseId: h.horseId,
@@ -221,8 +215,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           : pedigreeAptitudeAdjustment(pedigreeStatsById[h.sireId], pedigreeStatsById[h.damsireId], race.distance);
         const paddockGrade = paddockByNum[h.num];
         const paddock = paddockAdjustment(paddockGrade);
-        const handicap = handicapWeightAdjustment(race.isHandicap, h.futanJuryo, fieldAvgFutanJuryo);
-        const handicapDrop = handicapWeightDropAdjustment(race.isHandicap, h.futanJuryo, jvPast);
         const shadaiLayoff = shadaiLayoffAdjustment(h.breeder, race.id, jvPast);
         const abandonment = jockeyAbandonmentAdjustment(
           h.horseId,
@@ -231,19 +223,15 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           raceJockeyContext
         );
         const wetSpecialist = wetSpecialistAdjustment(race.trackCondition, wetRecordByHorse[h.horseId]);
-        const bodyWeight = bodyWeightAdjustment(race.grade, h.bataiju, race.place);
         const sameCourse = sameCourseAdjustment(sameCourseRecordByHorse[h.horseId]);
         const extra = [
           ...(aiAdjustment !== 0 ? [{ label: "AI評価", score: aiAdjustment }] : []),
           ...(bias ? [{ label: bias.label, score: bias.score }] : []),
           ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
           ...(paddock ? [{ label: paddock.label, score: paddock.score }] : []),
-          ...(handicap ? [{ label: handicap.label, score: handicap.score }] : []),
-          ...(handicapDrop ? [{ label: handicapDrop.label, score: handicapDrop.score }] : []),
           ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
           ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
           ...(wetSpecialist ? [{ label: wetSpecialist.label, score: wetSpecialist.score }] : []),
-          ...(bodyWeight ? [{ label: bodyWeight.label, score: bodyWeight.score }] : []),
           ...(sameCourse ? [{ label: sameCourse.label, score: sameCourse.score }] : []),
         ];
         const extraTotal =
@@ -251,12 +239,9 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           (bias?.score ?? 0) +
           (aptitude?.score ?? 0) +
           (paddock?.score ?? 0) +
-          (handicap?.score ?? 0) +
-          (handicapDrop?.score ?? 0) +
           (abandonment?.score ?? 0) +
           (shadaiLayoff?.score ?? 0) +
           (wetSpecialist?.score ?? 0) +
-          (bodyWeight?.score ?? 0) +
           (sameCourse?.score ?? 0);
         const hasPastData = Boolean(jvPast && jvPast.length > 0);
         return {

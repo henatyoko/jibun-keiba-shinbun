@@ -41,48 +41,9 @@ export function sameCourseAdjustment(sameCourseRecord) {
   return { label: `同コース好走(${top3}/${starts})`, score: 5 };
 }
 
-// G1・G2限定、馬体重500kg以上に加点する。中山は最後の直線に高低差2.2mの坂があり、
-// 大型馬有利の傾向が他場より強く出ることをバックテストで確認済み(8年・382頭分、
-// 中山G1/G2: 500kg以上3着内30.8% vs 500kg未満17.6%、他場: 27.4% vs 18.3%)。
-// 460〜499kg帯では明確な傾斜が無かったため、500kg未満への減点はしない。
-export function bodyWeightAdjustment(grade, bataiju, place) {
-  if (grade !== "G1" && grade !== "G2") return null;
-  if (!Number.isFinite(bataiju) || bataiju < 500) return null;
-  const score = place === "中山" ? 2 : 1;
-  return { label: `馬体重${bataiju}kg`, score };
-}
-
-// ハンデ戦限定で、斤量が同レースの平均より軽いほど加点、重いほど減点する補正を返す。
-// ハンデ戦は競走馬ごとにJRAが実力を見て個別に斤量を決めるため、軽ハンデ=実力を
-// 低く見られている=荒れた時の価値が高い、という読み方をする。ハンデ戦以外はnull。
-export function handicapWeightAdjustment(isHandicap, futanJuryo, fieldAvgFutanJuryo) {
-  if (!isHandicap) return null;
-  if (!Number.isFinite(futanJuryo) || !Number.isFinite(fieldAvgFutanJuryo)) return null;
-  const diffKg = fieldAvgFutanJuryo - futanJuryo; // 正なら平均より軽い
-  const score = Math.max(-3, Math.min(3, Math.round(diffKg * 1.5)));
-  if (score === 0) return null;
-  return { label: `斤量${futanJuryo.toFixed(1)}kg`, score };
-}
-
-// ハンデ戦限定で、本馬がこれまでに背負ったことのある斤量(直近5走)の最軽量と比べて、
-// 今回さらに軽くなっている(=過去に経験の無い軽さ)場合に加点する。
-// レース平均との比較(handicapWeightAdjustment)とは別のシグナルで、
-// 「ハンデ担当者が過去の実績以上に評価を大きく下げてきた」ことを捉える狙い。
-export function handicapWeightDropAdjustment(isHandicap, futanJuryo, pastRaces) {
-  if (!isHandicap || !Number.isFinite(futanJuryo)) return null;
-  const pastWeights = (pastRaces || [])
-    .map((r) => Number(r.futan_juryo))
-    .filter((v) => Number.isFinite(v) && v > 0)
-    .map((v) => v / 10); // JV-Dataは0.1kg単位の数値文字列("560"=56.0kg)
-  if (pastWeights.length < 2) return null; // データ不足
-
-  const minPastWeight = Math.min(...pastWeights);
-  const dropKg = minPastWeight - futanJuryo; // 正なら過去最軽量よりさらに軽い
-  if (dropKg < 1) return null; // 1kg未満の差は誤差程度として無視
-
-  const score = Math.min(3, Math.round(dropKg));
-  return { label: `過去最軽量-${dropKg.toFixed(1)}kg`, score };
-}
+// (G1・G2の馬体重500kg以上の加点と、ハンデ戦の斤量補正は削除済み。漏洩なしの約2,500レースの
+// 回帰で、どちらも的中を予測する向きが逆(ハンデ斤量-3.9倍±1.1、馬体重-15倍±6.8)で、
+// 外しても成績は変わらなかったため。)
 
 // 社台グループ系の生産牧場(表記ゆれ込み)。ノーザンファーム等の充実した外厩・
 // 育成環境を持つ牧場は、休養期間中も仕上がりが崩れにくいという考え方から、

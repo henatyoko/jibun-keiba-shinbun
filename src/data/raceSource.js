@@ -9,7 +9,7 @@ import { PLACE_NAMES, gradeBadge, raceTitle, distanceLabel, trackConditionLabel 
 // (race_shosai=RA レース詳細, umagoto_race_joho=SE 馬ごとレース情報,
 //  kyosoba_master2=競走馬マスタ)を読む。データが無い場合はモックにフォールバックする。
 const RACE_SHOSAI_COLUMNS =
-  "race_code, kaisai_nen, kaisai_gappi, keibajo_code, race_bango, kyosomei_hondai, grade_code, kyoso_shubetsu_code, kyoso_joken_code_2sai, kyoso_joken_code_3sai, kyoso_joken_code_4sai, kyoso_joken_code_5sai_ijo, kyoso_joken_code_saijakunen, kyori, track_code, hasso_jikoku, juryo_shubetsu_code, toroku_tosu, shiba_babajotai_code, dirt_babajotai_code";
+  "race_code, kaisai_nen, kaisai_gappi, keibajo_code, race_bango, kyosomei_hondai, grade_code, kyoso_shubetsu_code, kyoso_joken_code_2sai, kyoso_joken_code_3sai, kyoso_joken_code_4sai, kyoso_joken_code_5sai_ijo, kyoso_joken_code_saijakunen, kyori, track_code, hasso_jikoku, toroku_tosu, shiba_babajotai_code, dirt_babajotai_code";
 
 export async function fetchRaces() {
   if (!isSupabaseConfigured) return MOCK_RACES;
@@ -145,7 +145,7 @@ async function assembleRaces(raceRows, isPastReview) {
 
   const { rows: entryRows, error: entryError } = await fetchAllRows(
     "umagoto_race_joho",
-    "race_code, umaban, wakuban, ketto_toroku_bango, bamei, kishumei_ryakusho, chokyoshimei_ryakusho, banushimei_hojinkaku_nashi, barei, kakutei_chakujun, tansho_odds, tansho_ninkijun, futan_juryo, bataiju",
+    "race_code, umaban, wakuban, ketto_toroku_bango, bamei, kishumei_ryakusho, chokyoshimei_ryakusho, banushimei_hojinkaku_nashi, barei, kakutei_chakujun, tansho_odds, tansho_ninkijun",
     (q) => q.in("race_code", raceCodes)
   );
 
@@ -273,8 +273,6 @@ async function assembleRaces(raceRows, isPastReview) {
           result: positiveOrNull(h.kakutei_chakujun),
           odds: positiveOrNull(liveOdds?.odds, 10) ?? positiveOrNull(h.tansho_odds, 10),
           ninki: positiveOrNull(liveOdds?.ninki) ?? positiveOrNull(h.tansho_ninkijun),
-          futanJuryo: positiveOrNull(h.futan_juryo, 10),
-          bataiju: positiveOrNull(h.bataiju),
         };
       });
 
@@ -289,7 +287,6 @@ async function assembleRaces(raceRows, isPastReview) {
       rawDate,
       date: formatRaceDate(rawDate, race.hasso_jikoku),
       isPastReview,
-      isHandicap: race.juryo_shubetsu_code === "1",
       horses,
     };
   });
