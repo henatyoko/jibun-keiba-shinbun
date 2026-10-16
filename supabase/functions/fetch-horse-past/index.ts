@@ -18,7 +18,7 @@ const NOTE_SYSTEM_PROMPT = `あなたは競馬新聞のベテラン記者です�
 競馬新聞の「短評」欄のような一言コメント(20〜40字程度、体言止めや新聞調でよい)と、
 その馬の今の調子を反映したスコア補正(-5〜+5の整数、絶好調なら+、不振なら-、
 互角なら0に近い値)をJSONで返してください。
-直近の着順が良いほど(特に前走の着順を重視)高評価、上がり3Fが直近で速くなっているほど高評価にしてください。
+直近の着順が良いほど(特に「前走」の着順を重視)高評価、上がり3Fが直近で速くなっているほど高評価にしてください。
 人気・オッズのデータは渡されません。人気との比較には言及しないでください。
 
 出力は次のJSON形式のみとし、説明文やコードブロックは付けないでください。
@@ -133,18 +133,22 @@ async function generateHorseNote(
   // 素直に文字列の真偽値やNumber()だけで判定すると"00"がtruthyになったり、
   // 999(=上がり99.9秒、実際にはあり得ない番兵値)がそのまま渡ってしまい、
   // AIが「0着=1着」のように事実と異なる短評を生成する原因になっていた。
+  // 着順の行を並べただけだとAIが前走を1〜2行ずれて読み、3走前の1着を「前走1着」と書く
+  // ことがあったため、行ごとに前走/2走前…とレース日のラベルを付ける。
   const raceLines = pastRaces
-    .map((r) => {
+    .map((r, idx) => {
       const finishNum = Number(r.kakutei_chakujun);
       const finish = Number.isFinite(finishNum) && finishNum > 0 ? `${finishNum}着` : "着順不明";
       const kohanNum = Number(r.kohan_3f);
       const kohan3f = Number.isFinite(kohanNum) && kohanNum > 0 && kohanNum < 900 ? `上がり${(kohanNum / 10).toFixed(1)}秒` : "";
       if (finish === "着順不明" && !kohan3f) return null;
-      return `${finish}${kohan3f ? " " + kohan3f : ""}`;
+      const label = idx === 0 ? "前走" : `${idx + 1}走前`;
+      const raceDate = typeof r.race_code === "string" && r.race_code.length >= 8 ? `${Number(r.race_code.slice(4, 6))}/${Number(r.race_code.slice(6, 8))}` : "";
+      return `${label}${raceDate ? `(${raceDate})` : ""}: ${finish}${kohan3f ? " " + kohan3f : ""}`;
     })
     .filter((line): line is string => line !== null)
     .join("\n");
-  const userText = `馬名: ${horseName}\n直近成績(新しい順):\n${raceLines || "データなし"}`;
+  const userText = `馬名: ${horseName}\n直近成績(上から新しい順。「前走」が最新の1走):\n${raceLines || "データなし"}`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
