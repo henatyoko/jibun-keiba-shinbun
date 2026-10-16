@@ -1,5 +1,6 @@
 import { MOCK_RACES } from "./mockRaces";
 import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
+import { toPreRaceDistanceStats } from "./preRaceDistanceStats";
 import { PLACE_NAMES, gradeBadge, raceTitle, distanceLabel, trackConditionLabel } from "./jvCodeTables";
 
 // レース・出走馬データの取得口。
@@ -194,7 +195,7 @@ async function assembleRaces(raceRows, isPastReview) {
     supabase
       .from("kyosoba_master2")
       .select(
-        `ketto_toroku_bango, ketto1_bamei, ketto1_hanshoku_toroku_bango, ketto5_hanshoku_toroku_bango, seisanshamei_hojinkaku_nashi, ${DISTANCE_BUCKET_COLUMNS}, kyakushitsu_keiko_nige, kyakushitsu_keiko_senko, kyakushitsu_keiko_sashi, kyakushitsu_keiko_oikomi`
+        `ketto_toroku_bango, ketto1_bamei, ketto1_hanshoku_toroku_bango, ketto5_hanshoku_toroku_bango, seisanshamei_hojinkaku_nashi, data_sakusei_nengappi, ${DISTANCE_BUCKET_COLUMNS}, kyakushitsu_keiko_nige, kyakushitsu_keiko_senko, kyakushitsu_keiko_sashi, kyakushitsu_keiko_oikomi`
       )
       .in("ketto_toroku_bango", horseIds),
   ]);
@@ -208,7 +209,16 @@ async function assembleRaces(raceRows, isPastReview) {
   const breederByHorseId = Object.fromEntries(
     (sireRows || []).map((s) => [s.ketto_toroku_bango, s.seisanshamei_hojinkaku_nashi?.trim()])
   );
-  const distanceStatsByHorseId = Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, extractDistanceStats(s)]));
+  // マスタの距離別成績にはこのレース自身や以降の結果が含まれることがあるので、レース前の成績に戻す。
+  const horseRaceCode = {};
+  filteredEntryRows.forEach((e) => {
+    horseRaceCode[e.ketto_toroku_bango] = e.race_code;
+  });
+  const distanceStatsByHorseId = await toPreRaceDistanceStats(
+    horseRaceCode,
+    Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, extractDistanceStats(s)])),
+    Object.fromEntries((sireRows || []).map((s) => [s.ketto_toroku_bango, s.data_sakusei_nengappi]))
+  );
   const pedigreeIdsByHorseId = Object.fromEntries(
     (sireRows || []).map((s) => [s.ketto_toroku_bango, { sireId: s.ketto1_hanshoku_toroku_bango, damsireId: s.ketto5_hanshoku_toroku_bango }])
   );
