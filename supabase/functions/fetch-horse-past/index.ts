@@ -41,6 +41,9 @@ type PastRace = {
 
 type HorseInput = { horseId: string; name?: string; pastRaces?: PastRace[] };
 
+// 生成に失敗した理由(HTTPステータス・本文の先頭)。リクエストにdebug:trueを付けた時だけ返す。
+const generationErrors: string[] = [];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
@@ -64,8 +67,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    generationErrors.length = 0;
     const notes = await getOrGenerateHorseNotes(horses);
-    return json({ notes }, 200);
+    return json(body?.debug === true ? { notes, errors: generationErrors } : { notes }, 200);
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : "取得に失敗しました" }, 500);
   }
@@ -166,17 +170,27 @@ async function generateHorseNote(
       }),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      console.error("anthropic error", response.status, text.slice(0, 300));
+      generationErrors.push(`${response.status} ${text.slice(0, 300)}`);
+      return null;
+    }
 
     const data = await response.json();
     const content = data.content?.[0]?.text ?? "";
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
 
-    if (typeof parsed.comment !== "string") return null;
+    if (typeof parsed.comment !== "string") {
+      generationErrors.push(`parse: ${content.slice(0, 200)}`);
+      return null;
+    }
     const scoreAdjustment = Number.isFinite(parsed.scoreAdjustment) ? Math.round(parsed.scoreAdjustment) : 0;
     return { comment: parsed.comment, scoreAdjustment: Math.max(-5, Math.min(5, scoreAdjustment)) };
-  } catch {
+  } catch (e) {
+    console.error("generateHorseNote failed", e);
+    generationErrors.push(`exception: ${e instanceof Error ? e.message : String(e)}`);
     return null;
   }
 }
