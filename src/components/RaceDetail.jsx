@@ -302,19 +302,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     saveSnapshotIfMissing(race.id, scored, computedMarks.marksByNum).catch(() => {});
   }, [race.id, race.isPastReview, snapshot, loadingPast, computedMarks, scored]);
 
-  // 馬場が悪い日などに参考にできるよう、脚質(逃げ/先行/差し/追込)ごとに馬番をまとめる。
-  const styleSummary = useMemo(
-    () =>
-      ["逃げ", "先行", "差し", "追込"].map((style) => ({
-        style,
-        nums: scored
-          .filter((h) => h.runningStyle === style)
-          .map((h) => h.num || "-")
-          .sort((a, b) => a - b),
-      })),
-    [scored]
-  );
-
   const displayList = useMemo(() => {
     if (sortMode === "waku") {
       return [...scored].sort((a, b) => a.num - b.num);
@@ -459,19 +446,6 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
               </em>
             </span>
           ))}
-        </div>
-      )}
-      {styleSummary.some((g) => g.nums.length > 0) && (
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-3 px-3 py-2 text-xs" style={{ background: PAPER_CARD, border: `1px solid ${INK}` }}>
-          <b style={{ fontFamily: "'Shippori Mincho', serif" }}>脚質</b>
-          {styleSummary
-            .filter((g) => g.nums.length > 0)
-            .map((g) => (
-              <span key={g.style} style={{ color: INK }}>
-                {g.style}
-                <span className="font-bold"> {g.nums.join("・")}</span>
-              </span>
-            ))}
         </div>
       )}
       {!loadingPast && !computedMarks.noDifferentiation && (
