@@ -4,6 +4,8 @@ import {
   baseScoreFromPastRaces,
   courseBiasAdjustment,
   distanceAptitudeAdjustment,
+  debutSireAdjustment,
+  debutTrainingAdjustment,
   shadaiLayoffAdjustment,
   jockeyAbandonmentAdjustment,
   sameCourseAdjustment,
@@ -13,6 +15,8 @@ import {
 import { saveSnapshotIfMissing } from "./raceSnapshotRepository";
 import { fetchWetRecords } from "./wetRecordRepository";
 import { fetchSameCourseRecords } from "./sameCourseRecordRepository";
+import { fetchPedigreeAptitude } from "./pedigreeAptitudeRepository";
+import { fetchTrainingScores } from "./trainingRepository";
 
 function emptyTally() {
   return {
@@ -171,6 +175,21 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     })
   );
 
+  // 新馬戦は父の産駒成績と調教の好時計で差を付ける(詳細画面と同じ評価)
+  const debutPedigreeByRace = {};
+  const debutTrainingByRace = {};
+  await Promise.all(
+    racesNeedingCompute
+      .filter((race) => race.isDebutRace)
+      .map(async (race) => {
+        const ids = race.horses.map((h) => h.horseId).filter(Boolean);
+        [debutPedigreeByRace[race.id], debutTrainingByRace[race.id]] = await Promise.all([
+          fetchPedigreeAptitude(race.horses),
+          fetchTrainingScores(ids, race.id),
+        ]);
+      })
+  );
+
   racesNeedingCompute.forEach((race) => {
     // 「乗り捨て」判定のため、同じレースの全馬の(今回の騎手, 前走の騎手)を先に集めておく
     const raceJockeyContext = race.horses.map((h) => ({
@@ -184,7 +203,12 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       const base = hasPastData ? baseScoreFromPastRaces(jvPast, race.id) : h.base;
       const { total, applied } = scoreHorse({ ...h, base }, attrRules, trendRules, race.name);
       const bias = courseBiasAdjustment(h.waku, race.place, race.distance);
-      const aptitude = distanceAptitudeAdjustment(h.distanceStats, race.distance);
+      const aptitude = race.isDebutRace
+        ? debutSireAdjustment(debutPedigreeByRace[race.id]?.[h.sireId], race.distance)
+        : distanceAptitudeAdjustment(h.distanceStats, race.distance);
+      const training = race.isDebutRace
+        ? debutTrainingAdjustment(debutTrainingByRace[race.id]?.[h.horseId] ?? null)
+        : null;
       const shadaiLayoff = shadaiLayoffAdjustment(h.breeder, race.id, jvPast);
       const abandonment = jockeyAbandonmentAdjustment(
         h.horseId,
@@ -197,6 +221,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       const extra = [
         ...(bias ? [{ label: bias.label, score: bias.score, waku: true }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
+        ...(training ? [{ label: training.label, score: training.score }] : []),
         ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
         ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
         ...(wetSpecialist ? [{ label: wetSpecialist.label, score: wetSpecialist.score }] : []),
@@ -211,6 +236,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
           total +
           (bias?.score ?? 0) +
           (aptitude?.score ?? 0) +
+          (training?.score ?? 0) +
           (shadaiLayoff?.score ?? 0) +
           (abandonment?.score ?? 0) +
           (wetSpecialist?.score ?? 0) +

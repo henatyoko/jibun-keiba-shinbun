@@ -284,6 +284,7 @@ async function assembleRaces(raceRows, isPastReview) {
       raceNumber: Number(race.race_bango),
       distance: distanceLabel(race.track_code, race.kyori),
       trackCondition: trackConditionLabel(race),
+      isDebutRace: race.kyoso_joken_code_saijakunen === "701",
       rawDate,
       date: formatRaceDate(rawDate, race.hasso_jikoku),
       isPastReview,

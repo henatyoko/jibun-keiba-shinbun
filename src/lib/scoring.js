@@ -171,6 +171,55 @@ export function pedigreeAptitudeAdjustment(sireStats, damsireStats, distanceStr)
   return { label: `血統距離適性${bucket.surfaceLabel}${top3}/${starts}`, score };
 }
 
+// ---- 新馬戦(全馬が過去走なし)専用の評価 ----
+// 過去走が無いので基礎点は全馬同じになり、これまでは枠順しか差が付かなかった。
+// 2025年6月以降の新馬戦約380レース(約5,000頭)のバックテストで、人気を使わずに
+// 「父の産駒の距離別3着内率」と「直近3週間の追い切りの好時計」が3着内率の差になることを確認した
+// (◎の3着内率約45%・上位3頭の3着内率約38〜41%、無印のランダムは約23%。
+// 2026年4月以降の検証期間でも同程度)。4F時計だけでは効かず、終い1Fの速さが本体。
+// 調教の標準化は、追い切りの種類別(坂路は所属別・ウッドはコース別)の平均と標準偏差で行う。
+const TRAINING_STATS = {
+  H0: { t4: [65.6, 5.4], l1: [15.7, 1.5] },
+  H1: { t4: [64.2, 5.5], l1: [15.2, 1.5] },
+  W03: { t4: [57.9, 7.4], l1: [13.2, 1.9] },
+  W12: { t4: [62.6, 8.5], l1: [14.3, 2.3] },
+};
+// 上位2割(-3.96以下)に+3、次の2割(-3.6以下)に+1。それ以外は差が付かなかったので0。
+const TRAINING_TOP_CUTOFF = -3.96;
+const TRAINING_NEXT_CUTOFF = -3.6;
+
+// workouts: [{ kind, t4, l1 }]。最良(小さいほど速い)の「4F時計と終い1Fの標準化値の和」を返す。
+export function bestTrainingScore(workouts) {
+  let best = null;
+  (workouts || []).forEach((w) => {
+    const stats = TRAINING_STATS[w.kind];
+    if (!stats) return;
+    const z = (w.t4 - stats.t4[0]) / stats.t4[1] + (w.l1 - stats.l1[0]) / stats.l1[1];
+    if (best == null || z < best) best = z;
+  });
+  return best;
+}
+
+export function debutTrainingAdjustment(trainingScore) {
+  if (trainingScore == null) return null;
+  if (trainingScore <= TRAINING_TOP_CUTOFF) return { label: "調教好時計(上位)", score: 3 };
+  if (trainingScore <= TRAINING_NEXT_CUTOFF) return { label: "調教好時計", score: 1 };
+  return null;
+}
+
+// 父の産駒の今日の距離帯での3着内率(25%を基準、7pt差で約4点、±8点まで)。サンプルが少なければnull。
+export function debutSireAdjustment(sireStats, distanceStr) {
+  const bucket = distanceBucketKey(distanceStr);
+  const stats = bucket && sireStats?.[bucket.key];
+  if (!stats) return null;
+  const starts = sumStats(stats);
+  if (starts < 30) return null;
+  const top3 = stats.chaku1 + stats.chaku2 + stats.chaku3;
+  const score = Math.max(-8, Math.min(8, Math.round((top3 / starts - 0.25) * 58)));
+  if (score === 0) return null;
+  return { label: `父産駒実績${bucket.surfaceLabel}${top3}/${starts}`, score };
+}
+
 // パドックで実際に見た印象(ユーザー自身の入力)による小さな補正。
 const PADDOCK_SCORE = { A: 3, B: 1, 無印: -2 };
 
