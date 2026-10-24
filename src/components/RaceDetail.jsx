@@ -226,7 +226,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
         const sameCourse = sameCourseAdjustment(sameCourseRecordByHorse[h.horseId]);
         const extra = [
           ...(aiAdjustment !== 0 ? [{ label: "AI評価", score: aiAdjustment }] : []),
-          ...(bias ? [{ label: bias.label, score: bias.score }] : []),
+          ...(bias ? [{ label: bias.label, score: bias.score, waku: true }] : []),
           ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
           ...(paddock ? [{ label: paddock.label, score: paddock.score }] : []),
           ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),

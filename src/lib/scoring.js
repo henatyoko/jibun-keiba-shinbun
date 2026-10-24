@@ -294,8 +294,9 @@ export function baseScoreFromPastRaces(pastRaces, currentRaceCode) {
 // スコア済みの馬一覧(num, rank, total, hasPastData, appliedを持つ)から印を判定する。
 // ◎○▲はスコア上位固定、△は3位との得点差が僅かな馬(最大3頭まで、僅差の近い順)、
 // 穴は機械的に5位固定にせず「得点は低いが加点材料がある馬」の中で最高得点の馬(同点なら全員)に付ける。
-// 過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって紛らわしいため
-// 印を一切付けない(noDifferentiation)。
+// 過去データも(枠順以外の)補正も無く全馬横並びの時は、枠番順がそのまま印になって紛らわしいため
+// 印を一切付けない(noDifferentiation)。枠順補正は馬の力の差ではないので、
+// 新馬戦などで枠順の加点だけが差になっている場合も「差が付いていない」とみなす。
 // 新馬戦など全馬が基礎点70前後に団子状態の時、閾値だけだと△が全馬に付いてしまうため、
 // 頭数の上限(MAX_TRIANGLE)も設けて絞る。90日分の実データ検証で、4頭目だけ的中率13%・
 // 複勝ROI43%と極端に悪く全体の足を引っ張っていたため、3頭までに絞った(全体的中率+1.0pt、
@@ -309,7 +310,7 @@ const MAX_TRIANGLE = 3;
 // marksByNumは確定済みレース(num重複が起きない)向けに従来通りも返す
 // (race_snapshots等、num主キーで保存する既存の仕組みと互換を保つため)。
 export function computeMarks(scored) {
-  const noDifferentiation = scored.every((h) => !h.hasPastData && h.applied.length === 0);
+  const noDifferentiation = scored.every((h) => !h.hasPastData && h.applied.every((a) => a.waku));
   if (noDifferentiation) return { marksByNum: {}, marksByHorseId: {}, noDifferentiation };
 
   const byRank = [...scored].sort((a, b) => a.rank - b.rank);

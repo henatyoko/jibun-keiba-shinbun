@@ -195,7 +195,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       const wetSpecialist = wetSpecialistAdjustment(race.trackCondition, wetRecordsByRace[race.id]?.[h.horseId]);
       const sameCourse = sameCourseAdjustment(sameCourseRecordsByRace[race.id]?.[h.horseId]);
       const extra = [
-        ...(bias ? [{ label: bias.label, score: bias.score }] : []),
+        ...(bias ? [{ label: bias.label, score: bias.score, waku: true }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
         ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
         ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
