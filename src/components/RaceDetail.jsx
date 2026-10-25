@@ -11,6 +11,7 @@ import {
   pedigreeAptitudeAdjustment,
   debutSireAdjustment,
   debutTrainingAdjustment,
+  classUpAdjustment,
   shadaiLayoffAdjustment,
   jockeyAbandonmentAdjustment,
   paddockAdjustment,
@@ -25,6 +26,7 @@ import { fetchAiNotes } from "../lib/aiNotesRepository";
 import { fetchRacePayouts } from "../lib/payoutRepository";
 import { fetchPedigreeAptitude } from "../lib/pedigreeAptitudeRepository";
 import { fetchTrainingScores } from "../lib/trainingRepository";
+import { fetchPastRaceGrades } from "../lib/pastClassRepository";
 import { fetchPaddockGrades, setPaddockGrade as savePaddockGrade } from "../lib/paddockRepository";
 import { fetchSnapshot, saveSnapshotIfMissing } from "../lib/raceSnapshotRepository";
 import { PAPER, PAPER_CARD, INK, RED, MUTED, LINE, MARKS } from "../lib/colors";
@@ -47,6 +49,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
   const [wetRecordByHorse, setWetRecordByHorse] = useState({});
   const [sameCourseRecordByHorse, setSameCourseRecordByHorse] = useState({});
   const [trainingScoreByHorse, setTrainingScoreByHorse] = useState({});
+  const [pastGradeByRace, setPastGradeByRace] = useState({});
   const canNativeShare = typeof navigator !== "undefined" && Boolean(navigator.share);
 
   // レースが切り替わった時、前のレースでのスクロール位置や並び順を引き継がない。
@@ -123,6 +126,9 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
       ]);
       if (cancelled) return;
       setTrainingScoreByHorse(trainingScores);
+      const pastGrades = await fetchPastRaceGrades(jvPast);
+      if (cancelled) return;
+      setPastGradeByRace(pastGrades);
       setJvPastByHorse(jvPast);
       setPedigreeStatsById(pedigree);
       setWetRecordByHorse(wetRecords);
@@ -223,6 +229,10 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
             ? distanceAptitudeAdjustment(h.distanceStats, race.distance)
             : pedigreeAptitudeAdjustment(pedigreeStatsById[h.sireId], pedigreeStatsById[h.damsireId], race.distance);
         const training = race.isDebutRace ? debutTrainingAdjustment(trainingScoreByHorse[h.horseId] ?? null) : null;
+        const classUp = classUpAdjustment(
+          race.grade,
+          jvPast?.map((r) => pastGradeByRace[r.race_code]).filter(Boolean)
+        );
         const paddockGrade = paddockByNum[h.num];
         const paddock = paddockAdjustment(paddockGrade);
         const shadaiLayoff = shadaiLayoffAdjustment(h.breeder, race.id, jvPast);
@@ -239,6 +249,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           ...(bias ? [{ label: bias.label, score: bias.score, waku: true }] : []),
           ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
           ...(training ? [{ label: training.label, score: training.score }] : []),
+          ...(classUp ? [{ label: classUp.label, score: classUp.score }] : []),
           ...(paddock ? [{ label: paddock.label, score: paddock.score }] : []),
           ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
           ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
@@ -250,6 +261,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
           (bias?.score ?? 0) +
           (aptitude?.score ?? 0) +
           (training?.score ?? 0) +
+          (classUp?.score ?? 0) +
           (paddock?.score ?? 0) +
           (abandonment?.score ?? 0) +
           (shadaiLayoff?.score ?? 0) +
@@ -272,7 +284,7 @@ export default function RaceDetail({ race, races, attrRules, trendRules, userId,
     const byScore = [...base].sort((a, b) => b.total - a.total);
     const rankByHorseId = new Map(byScore.map((h, idx) => [h.horseId, idx]));
     return base.map((h) => ({ ...h, rank: rankByHorseId.get(h.horseId) }));
-  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum, pedigreeStatsById, wetRecordByHorse, sameCourseRecordByHorse, trainingScoreByHorse, snapshot]);
+  }, [race, attrRules, trendRules, jvPastByHorse, notesByHorse, paddockByNum, pedigreeStatsById, wetRecordByHorse, sameCourseRecordByHorse, trainingScoreByHorse, pastGradeByRace, snapshot]);
 
   // 新馬戦などで過去データも補正も無く全馬横並びの時は、枠番順がそのまま印になって
   // 紛らわしいため印・強調表示を出さない。読み込み中も未確定の印を出さない。

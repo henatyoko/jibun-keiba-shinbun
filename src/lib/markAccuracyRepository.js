@@ -6,6 +6,7 @@ import {
   distanceAptitudeAdjustment,
   debutSireAdjustment,
   debutTrainingAdjustment,
+  classUpAdjustment,
   shadaiLayoffAdjustment,
   jockeyAbandonmentAdjustment,
   sameCourseAdjustment,
@@ -17,6 +18,7 @@ import { fetchWetRecords } from "./wetRecordRepository";
 import { fetchSameCourseRecords } from "./sameCourseRecordRepository";
 import { fetchPedigreeAptitude } from "./pedigreeAptitudeRepository";
 import { fetchTrainingScores } from "./trainingRepository";
+import { fetchPastRaceGrades } from "./pastClassRepository";
 
 function emptyTally() {
   return {
@@ -150,6 +152,8 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
     jvPastByHorse[horseId] = (rowsByHorse[horseId] || []).filter((r) => r.race_code < cutoff).slice(0, 5);
   });
 
+  const pastGradeByRace = await fetchPastRaceGrades(jvPastByHorse);
+
   // 重・不良のレースだけ、道悪巧者判定用の過去の馬場別成績を取る
   const wetRecordsByRace = {};
   await Promise.all(
@@ -206,6 +210,10 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
       const aptitude = race.isDebutRace
         ? debutSireAdjustment(debutPedigreeByRace[race.id]?.[h.sireId], race.distance)
         : distanceAptitudeAdjustment(h.distanceStats, race.distance);
+      const classUp = classUpAdjustment(
+        race.grade,
+        jvPast?.map((r) => pastGradeByRace[r.race_code]).filter(Boolean)
+      );
       const training = race.isDebutRace
         ? debutTrainingAdjustment(debutTrainingByRace[race.id]?.[h.horseId] ?? null)
         : null;
@@ -222,6 +230,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
         ...(bias ? [{ label: bias.label, score: bias.score, waku: true }] : []),
         ...(aptitude ? [{ label: aptitude.label, score: aptitude.score }] : []),
         ...(training ? [{ label: training.label, score: training.score }] : []),
+        ...(classUp ? [{ label: classUp.label, score: classUp.score }] : []),
         ...(shadaiLayoff ? [{ label: shadaiLayoff.label, score: shadaiLayoff.score }] : []),
         ...(abandonment ? [{ label: abandonment.label, score: abandonment.score }] : []),
         ...(wetSpecialist ? [{ label: wetSpecialist.label, score: wetSpecialist.score }] : []),
@@ -237,6 +246,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
           (bias?.score ?? 0) +
           (aptitude?.score ?? 0) +
           (training?.score ?? 0) +
+          (classUp?.score ?? 0) +
           (shadaiLayoff?.score ?? 0) +
           (abandonment?.score ?? 0) +
           (wetSpecialist?.score ?? 0) +

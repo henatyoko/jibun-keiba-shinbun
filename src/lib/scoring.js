@@ -171,6 +171,26 @@ export function pedigreeAptitudeAdjustment(sireStats, damsireStats, distanceStr)
   return { label: `血統距離適性${bucket.surfaceLabel}${top3}/${starts}`, score };
 }
 
+// 格上挑戦(今回のクラスが、過去5走で走った最高クラスより上)への減点。
+// 約2,500レース・約23,000頭の回帰で、基礎点・各補正を揃えても3着内率が下がることを確認した
+// (適正な補正は約-12点。ただし学習外期間の検証では-5点が最も成績が良く、◎の複勝率が
+// 49.4%→50.1%、BOX・カバー率が約+0.3pt。改善幅は小さいが悪化はしなかったため控えめの-5点で採用)。
+// 初距離(同距離帯の経験なし)は-1.5±1.5点で効果が確認できなかったため減点しない。
+const CLASS_RANK = { 新馬: 0, 未出走: 0, 未勝利: 0, "1勝クラス": 1, "2勝クラス": 2, "3勝クラス": 3, オープン: 4, G3: 5, 重賞: 5, G2: 6, G1: 7 };
+const CLASS_UP_PENALTY = -5;
+
+function classRank(label) {
+  return CLASS_RANK[label] ?? 1;
+}
+
+// todayGrade: 今回のレースのバッジ名、pastGrades: 過去走(最大5走)のバッジ名の配列
+export function classUpAdjustment(todayGrade, pastGrades) {
+  if (!pastGrades || pastGrades.length === 0) return null;
+  const maxPast = Math.max(...pastGrades.map(classRank));
+  if (classRank(todayGrade) - maxPast < 1) return null;
+  return { label: "格上挑戦", score: CLASS_UP_PENALTY };
+}
+
 // ---- 新馬戦(全馬が過去走なし)専用の評価 ----
 // 過去走が無いので基礎点は全馬同じになり、これまでは枠順しか差が付かなかった。
 // 2025年6月以降の新馬戦約380レース(約5,000頭)のバックテストで、人気を使わずに
