@@ -289,6 +289,11 @@ function moneyPoint(honshokinRaw) {
   return Math.max(-2, Math.min(16, (Math.log10(yen) - 6) * 7));
 }
 
+// 海外レースのrace_codeは競馬場コード(9〜10桁目)が数字2桁ではなく英数字になる(例: 20260725A6000005)。
+export function isOverseasRace(raceCode) {
+  return !/^\d{2}$/.test((raceCode || "").slice(8, 10));
+}
+
 // race_code(先頭8桁がYYYYMMDD)から開催日のUTCミリ秒を取り出す。
 function raceDateMs(raceCode) {
   if (!raceCode || raceCode.length < 8) return null;
@@ -312,8 +317,12 @@ const RECENCY_HALF_LIFE_DAYS = 60;
 // の3軸で調整する。市場の人気・オッズは意図的に見ない(このアプリの狙いは
 // 市場に追従することではなく独自の評価をすることのため)。
 // データが無ければ既定値(70)のまま。
-export function baseScoreFromPastRaces(pastRaces, currentRaceCode) {
-  if (!pastRaces || pastRaces.length === 0) return 70;
+export function baseScoreFromPastRaces(allPastRaces, currentRaceCode) {
+  // 海外レースはJV-Dataの獲得本賞金が0円で入るため、2着でも-2点(着外扱い)になり、
+  // 海外帰りの馬が不当に低くなる。2025年9月以降の検証で、海外走のある馬は3着内が
+  // 予想35頭に対し実際49頭と過小評価されており、除くと予想が36頭に近づく。基礎点は国内走だけで見る。
+  const pastRaces = (allPastRaces || []).filter((r) => !isOverseasRace(r.race_code));
+  if (pastRaces.length === 0) return 70;
 
   const currentDateMs = raceDateMs(currentRaceCode);
   let weightedSum = 0;

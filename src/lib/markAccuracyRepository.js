@@ -12,6 +12,7 @@ import {
   sameCourseAdjustment,
   wetSpecialistAdjustment,
   computeMarks,
+  isOverseasRace,
 } from "./scoring";
 import { saveSnapshotIfMissing } from "./raceSnapshotRepository";
 import { fetchWetRecords } from "./wetRecordRepository";
@@ -149,7 +150,7 @@ export async function computeMarkAccuracy(races, attrRules, trendRules) {
   const jvPastByHorse = {};
   horseIds.forEach((horseId) => {
     const cutoff = horseRaceCode[horseId];
-    jvPastByHorse[horseId] = (rowsByHorse[horseId] || []).filter((r) => r.race_code < cutoff).slice(0, 5);
+    jvPastByHorse[horseId] = (rowsByHorse[horseId] || []).filter((r) => r.race_code < cutoff && !isOverseasRace(r.race_code)).slice(0, 5);
   });
 
   const pastGradeByRace = await fetchPastRaceGrades(jvPastByHorse);
