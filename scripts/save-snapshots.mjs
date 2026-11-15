@@ -5,25 +5,25 @@
 // 計算ロジックは画面(RaceDetail)に一本化したまま、同じ結果をそのまま使うためにブラウザ経由にしている。
 // GitHub Actionsのスケジュール実行(月曜以降)から呼び出す想定。
 //
-// 環境変数: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY(読み取りのみ), SITE_URL(省略時 https://keiba.henatyoko.com)
+// 環境変数: SUPABASE_URL, SUPABASE_ANON_KEY, SITE_URL(省略時 https://keiba.henatyoko.com)
 // 任意: LOOKBACK_DAYS(既定10), CONCURRENCY(既定3), PER_RACE_TIMEOUT_SEC(既定120)
 
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const SITE_URL = (process.env.SITE_URL || "https://keiba.henatyoko.com").replace(/\/$/, "");
 const LOOKBACK_DAYS = Number(process.env.LOOKBACK_DAYS || 10);
 const CONCURRENCY = Number(process.env.CONCURRENCY || 3);
 const PER_RACE_TIMEOUT_MS = Number(process.env.PER_RACE_TIMEOUT_SEC || 120) * 1000;
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY が設定されていません");
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error("SUPABASE_URL / SUPABASE_ANON_KEY が設定されていません");
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
