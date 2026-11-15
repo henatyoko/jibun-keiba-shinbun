@@ -1,0 +1,40 @@
+name: Save race snapshots
+
+# 結果確定後のレースについて、予想スナップショット(race_snapshots)を先に保存しておく。
+# これで、レース後に初めて画面を開いても取得中のまま待たされない(15〜20秒かかる再計算を省ける)。
+# 正式な成績データは月曜のお昼頃から取り込めるため、月曜の夜と火曜の朝に実行する。
+# 保存済みのレースはスキップされるので、何度走らせても安全。
+
+on:
+  schedule:
+    # 月曜 12:00 UTC (日本時間 月曜21:00) と 火曜 21:00 UTC (日本時間 水曜6:00)
+    - cron: "0 12 * * 1"
+    - cron: "0 21 * * 2"
+  workflow_dispatch:
+
+jobs:
+  save:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright (chromium)
+        run: |
+          npm install --no-save playwright@1.49.1
+          npx playwright install --with-deps chromium
+
+      - name: Save snapshots
+        run: node scripts/save-snapshots.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
